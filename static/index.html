@@ -564,22 +564,32 @@ async function fetchSystemData() {
     // CPU, Memoire, Reseau
     const cpu = Math.round(data.system.cpu);
     const mem = Math.round(data.system.memory);
-    const net = Math.min(99, Math.round((data.system.network.download_speed / 10000) * 100));
+    let net = 0; // Valeur par défaut pour le réseau
+
+    // Vérification de la présence des données réseau avant calcul
+    if (data.system.network && data.system.network.download_speed !== undefined && data.system.network.download_speed !== null) {
+        // Le calcul original était potentiellement problématique s'il produisait NaN.
+        // J'ai ajouté des vérifications pour le rendre plus robuste.
+        net = Math.min(99, Math.round((data.system.network.download_speed / 10000) * 100));
+    } else {
+        console.warn("Données réseau manquantes ou invalides. Valeur par défaut à 0.");
+        net = 0; // Assurer que net est 0 si les données sont absentes
+    }
 
     document.getElementById('cpu').textContent = cpu + '%';
     document.getElementById('mem').textContent = mem + '%';
-    document.getElementById('net').textContent = net + '%';
+    document.getElementById('net').textContent = net + '%'; // Mise à jour du texte
 
     document.getElementById('cpuBar').style.width = cpu + '%';
     document.getElementById('cpuBar').style.animation = 'none';
     document.getElementById('memBar').style.width = mem + '%';
     document.getElementById('memBar').style.animation = 'none';
-    document.getElementById('netBar').style.width = net + '%';
+    document.getElementById('netBar').style.width = net + '%'; // Mise à jour de la barre
     document.getElementById('netBar').style.animation = 'none';
 
     document.getElementById('sysStatus').textContent = '■ OPERATIONNEL';
     document.getElementById('bottomTitle').textContent = `J.A.R.V.I.S v${data.version}`;
-    document.getElementById('sysTemp').textContent = '36.4°C';
+    document.getElementById('sysTemp').textContent = '36.4°C'; // Ceci est une valeur statique pour la température système
 
   } catch (error) {
     console.error('Erreur fetch system:', error);
@@ -704,7 +714,10 @@ async function sendMessage(text) {
 
   } catch (error) {
     setTimeout(() => {
-      addChatLine('jarvis', 'Erreur de connexion au serveur. Verifiez que le backend est demarre avec: python backend/app.py');
+      // Note: The error message here has a hardcoded path `backend/app.py`.
+      // This should be updated if app.py is moved to root.
+      // Corrected path is `app.py`
+      addChatLine('jarvis', 'Erreur de connexion au serveur. Verifiez que le backend est demarre avec: python app.py');
       document.getElementById('coreText').innerHTML = 'ERREUR';
     }, 500);
   }

@@ -1,0 +1,910 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>J.A.R.V.I.S — Interface HUD</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+:root {
+  --c: #00d4ff;
+  --c2: #0099cc;
+  --c3: rgba(0,212,255,0.12);
+  --c4: rgba(0,212,255,0.05);
+  --orange: #ff6b2b;
+  --green: #00ff88;
+  --bg: #000810;
+  --glow: 0 0 20px rgba(0,212,255,0.6);
+  --glow2: 0 0 40px rgba(0,212,255,0.3);
+}
+html, body {
+  width: 100%; height: 100%;
+  background: var(--bg);
+  color: var(--c);
+  font-family: 'Share Tech Mono', monospace;
+  overflow: hidden;
+  cursor: none;
+}
+
+/* CURSEUR */
+.cursor {
+  position: fixed; width: 20px; height: 20px;
+  border: 1px solid var(--c); border-radius: 50%;
+  pointer-events: none; z-index: 9999;
+  transform: translate(-50%,-50%);
+  box-shadow: var(--glow);
+}
+.cursor-dot {
+  position: fixed; width: 4px; height: 4px;
+  background: var(--c); border-radius: 50%;
+  pointer-events: none; z-index: 9999;
+  transform: translate(-50%,-50%);
+}
+
+/* SCANLINES */
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background: repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.1) 2px,rgba(0,0,0,0.1) 4px);
+  pointer-events: none; z-index: 1000;
+}
+/* SCAN LINE */
+body::after {
+  content: '';
+  position: fixed; top: -2px; left: 0; right: 0; height: 2px;
+  background: linear-gradient(90deg,transparent,var(--c),transparent);
+  opacity: 0.3; z-index: 1001;
+  animation: scanLine 5s linear infinite;
+}
+@keyframes scanLine { 0%{top:-2px} 100%{top:100vh} }
+
+/* GRILLE BG */
+.grid-bg {
+  position: fixed; inset: 0;
+  background-image: linear-gradient(rgba(0,212,255,0.04) 1px,transparent 1px), linear-gradient(90deg,rgba(0,212,255,0.04) 1px,transparent 1px);
+  background-size: 50px 50px;
+  animation: gridPulse 6s ease-in-out infinite;
+}
+@keyframes gridPulse { 0%,100%{opacity:.5} 50%{opacity:1} }
+
+/* GRILLE PERSPECTIVE */
+.grid-floor {
+  position: fixed; bottom: 0; left: 0; right: 0; height: 35vh;
+  background-image: linear-gradient(rgba(0,212,255,0.06) 1px,transparent 1px), linear-gradient(90deg,rgba(0,212,255,0.04) 1px,transparent 1px);
+  background-size: 60px 30px;
+  transform: perspective(400px) rotateX(60deg);
+  transform-origin: bottom; opacity: 0.5;
+}
+
+/* COINS HUD */
+.hud-corner {
+  position: fixed; width: 40px; height: 40px;
+  border-color: var(--c); border-style: solid; opacity: 0.5; z-index: 20;
+}
+.hud-corner-tl { top:0;left:0;border-width:2px 0 0 2px; }
+.hud-corner-tr { top:0;right:0;border-width:2px 2px 0 0; }
+.hud-corner-bl { bottom:0;left:0;border-width:0 0 2px 2px; }
+.hud-corner-br { bottom:0;right:0;border-width:0 2px 2px 0; }
+
+/* HUD LAYOUT */
+.hud {
+  position: fixed; inset: 0;
+  display: grid;
+  grid-template-columns: 210px 1fr 210px;
+  grid-template-rows: 56px 1fr 48px;
+  gap: 6px; padding: 6px; z-index: 10;
+}
+
+/* TOP BAR */
+.top-bar {
+  grid-column: 1 / -1;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 16px;
+  border-bottom: 1px solid rgba(0,212,255,0.2);
+  position: relative;
+}
+.top-bar::after {
+  content: '';
+  position: absolute; bottom: 0; left: 8%; right: 8%; height: 1px;
+  background: linear-gradient(90deg,transparent,var(--c),transparent);
+  box-shadow: var(--glow);
+}
+.top-title {
+  font-family: 'Orbitron',monospace; font-size: 1rem; font-weight: 900;
+  letter-spacing: 0.4em; text-shadow: var(--glow);
+  animation: titleFlicker 9s ease-in-out infinite;
+}
+@keyframes titleFlicker { 0%,88%,92%,100%{opacity:1} 90%{opacity:0.3} 91%{opacity:1} }
+.top-status { display:flex; gap:20px; font-size:0.58rem; letter-spacing:0.12em; color:var(--c2); }
+.top-time { font-family:'Orbitron',monospace; font-size:0.85rem; letter-spacing:0.2em; }
+
+/* PANNEAU */
+.panel-left, .panel-right { display:flex; flex-direction:column; gap:6px; overflow:hidden; }
+.panel-center { position:relative; display:flex; align-items:center; justify-content:center; overflow:hidden; }
+
+/* BOTTOM BAR */
+.bottom-bar {
+  grid-column: 1 / -1;
+  display:flex; align-items:center; justify-content:space-between;
+  padding: 0 16px;
+  border-top: 1px solid rgba(0,212,255,0.15);
+  font-size: 0.58rem; color: var(--c2); letter-spacing: 0.12em;
+}
+
+/* WIDGET */
+.widget {
+  background: var(--c4); border: 1px solid rgba(0,212,255,0.2);
+  padding: 9px 12px; position: relative; overflow: hidden;
+  transition: border-color 0.3s, box-shadow 0.3s;
+}
+.widget::before {
+  content: ''; position: absolute; top:0; left:0; right:0; height:1px;
+  background: linear-gradient(90deg,var(--c),transparent);
+}
+.widget:hover { border-color: var(--c); box-shadow: inset 0 0 15px rgba(0,212,255,0.04), var(--glow2); }
+.wlabel { font-size:0.52rem; letter-spacing:0.22em; color:var(--c2); margin-bottom:7px; }
+.wval { font-family:'Orbitron',monospace; font-size:1rem; font-weight:700; text-shadow:var(--glow); }
+
+/* BARRE */
+.dbar { margin:4px 0; }
+.dbar-lbl { display:flex; justify-content:space-between; font-size:0.55rem; color:var(--c2); margin-bottom:2px; }
+.dbar-track { height:3px; background:rgba(0,212,255,0.1); }
+.dbar-fill {
+  height:100%; background:linear-gradient(90deg,var(--c2),var(--c));
+  box-shadow:0 0 8px var(--c);
+  animation: barLoad 1.4s ease forwards;
+  transform-origin:left; transform:scaleX(0);
+}
+@keyframes barLoad { to{transform:scaleX(1)} }
+
+/* GRAPHIQUE */
+.mini-chart { height:38px; display:flex; align-items:flex-end; gap:2px; margin-top:5px; }
+.mbar { flex:1; background:var(--c); opacity:0.6; border-radius:1px 1px 0 0; box-shadow:0 0 4px var(--c); animation:mbarAnim 1.5s ease-in-out infinite; }
+@keyframes mbarAnim { 0%,100%{opacity:0.6} 50%{opacity:0.9} }
+
+/* RADAR */
+.radar-widget { position:relative; height:110px; display:flex; align-items:center; justify-content:center; }
+.radar-svg { filter:drop-shadow(0 0 6px var(--c)); }
+.radar-line { transform-origin:60px 60px; animation:radarSpin 3s linear infinite; }
+@keyframes radarSpin { to{transform:rotate(360deg)} }
+
+/* WAVEFORM */
+.wave-widget { height:45px; display:flex; align-items:center; }
+.wave-bars { display:flex; align-items:center; gap:2px; width:100%; height:100%; }
+.wbar { flex:1; background:var(--c); opacity:0.7; border-radius:1px; box-shadow:0 0 3px var(--c); transition:height 0.25s ease; }
+
+/* CHAT */
+.chat-screen {
+  flex:1; background:var(--c4); border:1px solid rgba(0,212,255,0.2);
+  padding:9px 12px; overflow:hidden; position:relative; display:flex; flex-direction:column;
+}
+.chat-screen::before { content:''; position:absolute; top:0;left:0;right:0;height:1px; background:linear-gradient(90deg,var(--c),transparent); }
+.chat-label { font-size:0.52rem; letter-spacing:0.22em; color:var(--c2); margin-bottom:7px; }
+.chat-lines { flex:1; overflow:hidden; }
+.chat-line { font-size:0.65rem; line-height:1.6; margin-bottom:3px; opacity:0; animation:lineIn 0.3s ease forwards; }
+.chat-line.user { color:rgba(0,212,255,0.65); }
+.chat-line.jarvis { color:var(--c); text-shadow:0 0 8px rgba(0,212,255,0.3); }
+.chat-line.jarvis::before { content:'> '; }
+@keyframes lineIn { to{opacity:1} }
+.chat-cursor { display:inline-block; width:6px; height:0.9em; background:var(--c); animation:blink 1s step-end infinite; vertical-align:text-bottom; margin-left:2px; }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+
+/* CENTRE ANNEAUX */
+.arc-wrap { position:relative; width:270px; height:270px; }
+.arc-svg1 { width:100%;height:100%; animation:rot 20s linear infinite; filter:drop-shadow(0 0 8px var(--c)); }
+.arc-svg2 { position:absolute;inset:14px;width:calc(100% - 28px);height:calc(100% - 28px); animation:rot 13s linear infinite reverse; filter:drop-shadow(0 0 5px rgba(0,212,255,0.5)); }
+.arc-svg3 { position:absolute;inset:28px;width:calc(100% - 56px);height:calc(100% - 56px); animation:rot 35s linear infinite; opacity:0.4; }
+@keyframes rot { to{transform:rotate(360deg)} }
+
+/* PULSE RINGS */
+.pulse-rings { position:absolute; top:50%;left:50%; transform:translate(-50%,-50%); }
+.pulse-ring { position:absolute; border-radius:50%; border:1px solid var(--c); top:50%;left:50%; transform:translate(-50%,-50%); animation:ringPulse 3s ease-out infinite; }
+.pulse-ring:nth-child(2) { animation-delay:1s; }
+.pulse-ring:nth-child(3) { animation-delay:2s; }
+@keyframes ringPulse { 0%{width:0;height:0;opacity:1} 100%{width:290px;height:290px;opacity:0} }
+
+/* NOYAU */
+.core {
+  position:absolute; top:50%;left:50%; transform:translate(-50%,-50%);
+  width:76px;height:76px; display:flex;align-items:center;justify-content:center;
+}
+.core-ring {
+  position:absolute;inset:0; border-radius:50%;
+  border:2px solid var(--c); box-shadow:0 0 20px var(--c),inset 0 0 20px rgba(0,212,255,0.1);
+  animation:coreGlow 2s ease-in-out infinite;
+}
+@keyframes coreGlow { 0%,100%{box-shadow:0 0 20px var(--c),inset 0 0 15px rgba(0,212,255,0.1)} 50%{box-shadow:0 0 40px var(--c),inset 0 0 25px rgba(0,212,255,0.2)} }
+.core-inner { position:absolute;inset:8px;border-radius:50%; background:radial-gradient(circle,rgba(0,212,255,0.3) 0%,transparent 70%); animation:coreGlow 2s ease-in-out infinite reverse; }
+.core-text { font-family:'Orbitron',monospace;font-size:0.52rem;font-weight:700;letter-spacing:0.08em;text-align:center;z-index:1;text-shadow:var(--glow);line-height:1.4; }
+
+/* DONNEES FLOTTANTES */
+.fdata { position:absolute;font-size:0.55rem;letter-spacing:0.1em;color:var(--c2);display:flex;align-items:center;gap:5px;white-space:nowrap; }
+.fdata::before { content:'';width:18px;height:1px;background:var(--c2);opacity:0.5; }
+
+/* MICRO BTN */
+.mic-btn {
+  position:absolute; bottom:70px; left:50%; transform:translateX(-50%);
+  width:52px;height:52px;border-radius:50%;border:2px solid var(--c);
+  background:var(--c4);cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  transition:all 0.3s;box-shadow:0 0 20px rgba(0,212,255,0.3);z-index:50;
+}
+.mic-btn:hover { background:rgba(0,212,255,0.12);box-shadow:0 0 40px rgba(0,212,255,0.6);transform:translateX(-50%) scale(1.1); }
+.mic-btn.active { background:rgba(255,107,43,0.15);border-color:var(--orange);box-shadow:0 0 40px rgba(255,107,43,0.5);animation:micPulse 1s ease-in-out infinite; }
+.mic-btn.error { border-color:#ff4444;box-shadow:0 0 40px rgba(255,68,68,0.5); }
+@keyframes micPulse { 0%,100%{box-shadow:0 0 20px rgba(255,107,43,0.4)} 50%{box-shadow:0 0 50px rgba(255,107,43,0.8)} }
+.mic-icon { font-size:1.2rem; }
+
+/* LISTEN LABEL */
+.listen-label { position:absolute;bottom:130px;left:50%;transform:translateX(-50%);font-size:0.58rem;letter-spacing:0.2em;color:var(--c2);opacity:0;transition:opacity 0.3s;white-space:nowrap; }
+.listen-label.show { opacity:1; }
+.listen-label.error { color:#ff4444; }
+
+/* STATUS BADGE */
+.status-badge { position:fixed;top:68px;left:50%;transform:translateX(-50%);font-size:0.58rem;padding:3px 12px;border:1px solid var(--green);color:var(--green);background:var(--bg);box-shadow:0 0 10px rgba(0,255,136,0.3);z-index:100;letter-spacing:0.15em;animation:badgeFloat 4s ease-in-out infinite; }
+@keyframes badgeFloat { 0%,100%{transform:translateX(-50%) translateY(0)} 50%{transform:translateX(-50%) translateY(-3px)} }
+
+/* PARTICULE */
+.particle { position:fixed;width:2px;height:2px;background:var(--c);border-radius:50%;pointer-events:none;box-shadow:0 0 4px var(--c);animation:partFall linear infinite; }
+@keyframes partFall { 0%{opacity:0.8;transform:translateY(0)} 100%{opacity:0;transform:translateY(100vh)} }
+
+/* LOADING */
+.loading { position:fixed;inset:0;background:var(--bg);z-index:9000;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:14px;animation:loadFade 0.6s ease 2.8s forwards; }
+@keyframes loadFade { to{opacity:0;pointer-events:none} }
+.load-title { font-family:'Orbitron',monospace;font-size:2.2rem;font-weight:900;letter-spacing:0.4em;text-shadow:0 0 40px var(--c); }
+.load-txt { font-size:0.68rem;letter-spacing:0.3em;overflow:hidden;white-space:nowrap;width:0;animation:loadType 2.5s steps(32) forwards; }
+@keyframes loadType { to{width:100%} }
+.load-bar-track { width:300px;height:2px;background:rgba(0,212,255,0.1); }
+.load-bar-fill { height:100%;background:var(--c);box-shadow:var(--glow);animation:loadBar 2.4s ease forwards;transform-origin:left;transform:scaleX(0); }
+@keyframes loadBar { to{transform:scaleX(1)} }
+
+/* INPUT CHAT */
+.chat-input-wrap { display:flex; gap:6px; margin-top:8px; }
+.chat-input {
+  flex:1; background:var(--c4); border:1px solid rgba(0,212,255,0.2);
+  color:var(--c); padding:6px 10px; font-family:'Share Tech Mono',monospace;
+  font-size:0.65rem; outline:none;
+}
+.chat-input:focus { border-color:var(--c); box-shadow:0 0 10px rgba(0,212,255,0.3); }
+.chat-send {
+  background:var(--c); color:var(--bg); border:none;
+  padding:6px 14px; cursor:pointer; font-family:'Share Tech Mono',monospace;
+  font-weight:700; letter-spacing:0.1em;
+}
+.chat-send:hover { box-shadow:0 0 15px var(--c); }
+
+/* SPEAKING ANIMATION */
+.speaking .core-ring {
+  animation: coreGlow 0.5s ease-in-out infinite;
+  border-color: var(--orange);
+}
+.speaking .core-inner {
+  background: radial-gradient(circle, rgba(255,107,43,0.4) 0%, transparent 70%);
+}
+</style>
+</head>
+<body>
+
+<!-- LOADING -->
+<div class="loading" id="loading">
+  <div class="load-title">J.A.R.V.I.S</div>
+  <div class="load-txt">INITIALISATION DU SYSTEME EN COURS...</div>
+  <div class="load-bar-track"><div class="load-bar-fill"></div></div>
+  <div style="font-size:0.58rem;letter-spacing:0.2em;color:rgba(0,212,255,0.3);margin-top:6px;">JUST A RATHER VERY INTELLIGENT SYSTEM</div>
+</div>
+
+<!-- CURSEUR -->
+<div class="cursor" id="cursor"></div>
+<div class="cursor-dot" id="cursorDot"></div>
+
+<!-- DECORS -->
+<div class="grid-bg"></div>
+<div class="grid-floor"></div>
+<div class="hud-corner hud-corner-tl"></div>
+<div class="hud-corner hud-corner-tr"></div>
+<div class="hud-corner hud-corner-bl"></div>
+<div class="hud-corner hud-corner-br"></div>
+<div class="status-badge" id="statusBadge">● SYSTEME EN LIGNE</div>
+
+<!-- HUD -->
+<div class="hud">
+
+  <!-- TOP BAR -->
+  <div class="top-bar">
+    <div class="top-status">
+      <span id="topDate">DATE: --/--/----</span>
+      <span>LAT: 06.3654°N</span>
+      <span>LON: 02.4183°E</span>
+    </div>
+    <div class="top-title">J.A.R.V.I.S</div>
+    <div style="display:flex;gap:20px;align-items:center;">
+      <div class="top-status"><span>PROTOCOLE: ALPHA-7</span><span>ACCES: AUTORISE</span></div>
+      <div class="top-time" id="clock">--:--:--</div>
+    </div>
+  </div>
+
+  <!-- GAUCHE -->
+  <div class="panel-left">
+
+    <!-- STATUT -->
+    <div class="widget">
+      <div class="wlabel">// STATUT SYSTEME</div>
+      <div class="wval" style="font-size:0.78rem;color:var(--green)" id="sysStatus">■ INITIALISATION...</div>
+      <div style="margin-top:8px;">
+        <div class="dbar">
+          <div class="dbar-lbl"><span>CPU</span><span id="cpu">--</span></div>
+          <div class="dbar-track"><div class="dbar-fill" id="cpuBar" style="width:0%"></div></div>
+        </div>
+        <div class="dbar">
+          <div class="dbar-lbl"><span>MEM</span><span id="mem">--</span></div>
+          <div class="dbar-track"><div class="dbar-fill" id="memBar" style="width:0%;animation-delay:0.2s"></div></div>
+        </div>
+        <div class="dbar">
+          <div class="dbar-lbl"><span>RESEAU</span><span id="net">--</span></div>
+          <div class="dbar-track"><div class="dbar-fill" id="netBar" style="width:0%;animation-delay:0.4s"></div></div>
+        </div>
+        <div class="dbar">
+          <div class="dbar-lbl"><span>IA CORE</span><span style="color:var(--green)">CONNECTE</span></div>
+          <div class="dbar-track"><div class="dbar-fill" style="width:100%;animation-delay:0.6s;background:linear-gradient(90deg,var(--c),var(--green))"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RADAR -->
+    <div class="widget">
+      <div class="wlabel">// RADAR ZONE</div>
+      <div class="radar-widget">
+        <svg class="radar-svg" width="120" height="120" viewBox="0 0 120 120">
+          <circle cx="60" cy="60" r="55" fill="none" stroke="rgba(0,212,255,0.12)" stroke-width="1"/>
+          <circle cx="60" cy="60" r="38" fill="none" stroke="rgba(0,212,255,0.1)" stroke-width="1"/>
+          <circle cx="60" cy="60" r="22" fill="none" stroke="rgba(0,212,255,0.15)" stroke-width="1"/>
+          <circle cx="60" cy="60" r="8" fill="none" stroke="rgba(0,212,255,0.2)" stroke-width="1"/>
+          <line x1="5" y1="60" x2="115" y2="60" stroke="rgba(0,212,255,0.08)" stroke-width="0.5"/>
+          <line x1="60" y1="5" x2="60" y2="115" stroke="rgba(0,212,255,0.08)" stroke-width="0.5"/>
+          <defs>
+            <radialGradient id="sweep" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stop-color="rgba(0,212,255,0.35)"/>
+              <stop offset="100%" stop-color="rgba(0,212,255,0)"/>
+            </radialGradient>
+          </defs>
+          <path d="M60 60 L115 60 A55 55 0 0 0 60 5 Z" fill="url(#sweep)" class="radar-line"/>
+          <circle cx="82" cy="34" r="2.5" fill="var(--c)" opacity="0.9"><animate attributeName="opacity" values="0.9;0.2;0.9" dur="2s" repeatCount="indefinite"/></circle>
+          <circle cx="44" cy="82" r="2" fill="var(--green)" opacity="0.7"><animate attributeName="opacity" values="0.7;0.1;0.7" dur="1.8s" repeatCount="indefinite"/></circle>
+          <circle cx="88" cy="72" r="1.5" fill="var(--orange)" opacity="0.8"><animate attributeName="opacity" values="0.8;0.1;0.8" dur="2.5s" repeatCount="indefinite"/></circle>
+          <circle cx="60" cy="60" r="3" fill="var(--c)" opacity="0.95"/>
+        </svg>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:0.52rem;color:var(--c2);margin-top:3px;">
+        <span style="color:var(--c)">■ 2 ALLIES</span><span style="color:var(--orange)">■ 1 CIBLE</span>
+      </div>
+    </div>
+
+    <!-- ENERGIE -->
+    <div class="widget" style="flex:1">
+      <div class="wlabel">// ARC REACTEUR</div>
+      <div class="wval" style="color:var(--green)" id="powerVal">-- <span style="font-size:0.55rem">GW</span></div>
+      <div class="mini-chart" id="powerChart"></div>
+      <div style="font-size:0.55rem;color:var(--c2);margin-top:7px;line-height:1.9;">
+        <div>AUTONOMIE: <span style="color:var(--c)">∞</span></div>
+        <div>EFFICACITE: <span style="color:var(--green)" id="effVal">--%</span></div>
+        <div>TEMP: <span style="color:var(--orange)" id="tempVal">--K°C</span></div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- CENTRE -->
+  <div class="panel-center" id="panelCenter">
+
+    <!-- ANNEAUX -->
+    <div class="arc-wrap">
+      <svg class="arc-svg1" viewBox="0 0 270 270">
+        <circle cx="135" cy="135" r="126" fill="none" stroke="rgba(0,212,255,0.07)" stroke-width="1"/>
+        <circle cx="135" cy="135" r="126" fill="none" stroke="var(--c)" stroke-width="1.5" stroke-dasharray="55 8 18 8 75 8 12 8" stroke-linecap="round" opacity="0.85"/>
+        <g stroke="var(--c)" stroke-width="1" opacity="0.4">
+          <line x1="135" y1="9" x2="135" y2="20"/>
+          <line x1="261" y1="135" x2="250" y2="135"/>
+          <line x1="135" y1="261" x2="135" y2="250"/>
+          <line x1="9" y1="135" x2="20" y2="135"/>
+        </g>
+        <text x="129" y="8" fill="rgba(0,212,255,0.35)" font-size="6" font-family="Share Tech Mono">000</text>
+        <text x="253" y="138" fill="rgba(0,212,255,0.35)" font-size="6" font-family="Share Tech Mono">090</text>
+        <text x="129" y="269" fill="rgba(0,212,255,0.35)" font-size="6" font-family="Share Tech Mono">180</text>
+        <text x="4" y="138" fill="rgba(0,212,255,0.35)" font-size="6" font-family="Share Tech Mono">270</text>
+      </svg>
+      <svg class="arc-svg2" viewBox="0 0 242 242">
+        <circle cx="121" cy="121" r="112" fill="none" stroke="rgba(0,212,255,0.45)" stroke-width="1" stroke-dasharray="28 5 75 5 38 5 8 5 55 5"/>
+      </svg>
+      <svg class="arc-svg3" viewBox="0 0 214 214">
+        <circle cx="107" cy="107" r="98" fill="none" stroke="var(--c)" stroke-width="0.5" stroke-dasharray="5 18"/>
+      </svg>
+      <div class="pulse-rings">
+        <div class="pulse-ring"></div>
+        <div class="pulse-ring"></div>
+        <div class="pulse-ring"></div>
+      </div>
+      <div class="core">
+        <div class="core-ring"></div>
+        <div class="core-inner"></div>
+        <div class="core-text" id="coreText">EN<br>LIGNE</div>
+      </div>
+      <div class="fdata" style="top:50%;left:-20px;transform:translateY(-50%)">SYNC 99.8%</div>
+      <div class="fdata" style="top:20%;right:-55px;transform:scaleX(-1);direction:rtl">API ●</div>
+      <div class="fdata" style="bottom:20%;right:-70px;transform:scaleX(-1);direction:rtl">MEM OK</div>
+    </div>
+
+    <!-- MICRO -->
+    <div class="mic-btn" id="micBtn" onclick="toggleMic()">
+      <span class="mic-icon" id="micIcon">🎙️</span>
+    </div>
+    <div class="listen-label" id="listenLabel">// EN ECOUTE...</div>
+
+    <!-- HINT -->
+    <div style="position:absolute;bottom:10px;font-size:0.5rem;letter-spacing:0.18em;color:rgba(0,212,255,0.3);">[ ESPACE ] OU CLIC POUR ACTIVER</div>
+
+  </div>
+
+  <!-- DROITE -->
+  <div class="panel-right">
+
+    <!-- CHAT -->
+    <div class="chat-screen">
+      <div class="chat-label">// INTERFACE DIALOGUE</div>
+      <div class="chat-lines" id="chatLines"></div>
+      <div class="chat-input-wrap">
+        <input type="text" class="chat-input" id="chatInput" placeholder="Entrez votre message..." onkeypress="handleKeyPress(event)">
+        <button class="chat-send" onclick="sendMessage()">ENVOYER</button>
+      </div>
+    </div>
+
+    <!-- WAVE -->
+    <div class="widget">
+      <div class="wlabel">// ANALYSE VOCALE</div>
+      <div class="wave-widget"><div class="wave-bars" id="waveBars"></div></div>
+      <div style="font-size:0.55rem;color:var(--c2);margin-top:5px;line-height:1.9;">
+        <div>VOIX: <span style="color:var(--c)" id="voiceMatch">--</span></div>
+        <div>CONFIANCE: <span style="color:var(--green)" id="voiceConf">--%</span></div>
+      </div>
+    </div>
+
+    <!-- LOCALISATION -->
+    <div class="widget">
+      <div class="wlabel">// LOCALISATION</div>
+      <div style="font-size:0.65rem;line-height:2;color:var(--c2);" id="locationInfo">
+        <div>VILLE: <span style="color:var(--c)">--</span></div>
+        <div>PAYS: <span style="color:var(--c)">--</span></div>
+        <div>ALTITUDE: <span style="color:var(--c)">--</span></div>
+      </div>
+      <div class="dbar" style="margin-top:6px;">
+        <div class="dbar-lbl"><span>SIGNAL GPS</span><span style="color:var(--green)" id="gpsSignal">--</span></div>
+        <div class="dbar-track"><div class="dbar-fill" style="width:0%;background:linear-gradient(90deg,var(--c2),var(--green))" id="gpsBar"></div></div>
+      </div>
+    </div>
+
+    <!-- STATS -->
+    <div class="widget" style="flex:1">
+      <div class="wlabel">// STATISTIQUES</div>
+      <div style="font-size:0.6rem;line-height:2.2;color:var(--c2);">
+        <div>REQUETES: <span style="color:var(--c)" id="reqCount">0</span></div>
+        <div>UPTIME: <span style="color:var(--green)" id="uptime">00:00:00</span></div>
+        <div>TEMPERATURE: <span style="color:var(--orange)" id="sysTemp">--</span></div>
+        <div>ENGINE: <span style="color:var(--c)" id="engineName">INIT...</span></div>
+        <div>VERSION: <span style="color:var(--c)" id="versionNum">--</span></div>
+        <div>VOIX: <span style="color:var(--green)" id="voiceStatus">OFF</span></div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- BOTTOM BAR -->
+  <div class="bottom-bar">
+    <span id="bottomTitle">J.A.R.V.I.S v--</span>
+    <span id="bottomEngine">MISTRAL AI ENGINE</span>
+    <span id="bottomStatus">INITIALISATION...</span>
+  </div>
+
+</div>
+
+<script>
+// ============================================================
+// CONFIGURATION
+// ============================================================
+const API_BASE = 'http://localhost:5000/api';
+
+// ============================================================
+// CURSEUR
+// ============================================================
+const cursor = document.getElementById('cursor');
+const cursorDot = document.getElementById('cursorDot');
+document.addEventListener('mousemove', e => {
+  cursor.style.left = e.clientX + 'px';
+  cursor.style.top = e.clientY + 'px';
+  cursorDot.style.left = e.clientX + 'px';
+  cursorDot.style.top = e.clientY + 'px';
+});
+
+// ============================================================
+// HORLOGE
+// ============================================================
+function updateClock() {
+  const now = new Date();
+  const pad = n => String(n).padStart(2,'0');
+  document.getElementById('clock').textContent = `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+  document.getElementById('topDate').textContent = `DATE: ${pad(now.getDate())}/${pad(now.getMonth()+1)}/${now.getFullYear()}`;
+}
+setInterval(updateClock, 1000); updateClock();
+
+// ============================================================
+// UPTIME
+// ============================================================
+let startTime = Date.now();
+function updateUptime() {
+  const e = Math.floor((Date.now()-startTime)/1000);
+  const pad = n => String(n).padStart(2,'0');
+  document.getElementById('uptime').textContent = `${pad(Math.floor(e/3600))}:${pad(Math.floor((e%3600)/60))}:${pad(e%60)}`;
+}
+setInterval(updateUptime, 1000);
+
+// ============================================================
+// DONNEES SYSTEME REELLES
+// ============================================================
+let reqCount = 0;
+
+async function fetchSystemData() {
+  try {
+    const response = await fetch(`${API_BASE}/status`);
+    const data = await response.json();
+
+    reqCount = data.request_count;
+    document.getElementById('reqCount').textContent = reqCount;
+    document.getElementById('versionNum').textContent = data.version;
+    document.getElementById('engineName').textContent = data.engine.toUpperCase();
+
+    // CPU, Memoire, Reseau
+    const cpu = Math.round(data.system.cpu);
+    const mem = Math.round(data.system.memory);
+    const net = Math.min(99, Math.round((data.system.network.download_speed / 10000) * 100));
+
+    document.getElementById('cpu').textContent = cpu + '%';
+    document.getElementById('mem').textContent = mem + '%';
+    document.getElementById('net').textContent = net + '%';
+
+    document.getElementById('cpuBar').style.width = cpu + '%';
+    document.getElementById('cpuBar').style.animation = 'none';
+    document.getElementById('memBar').style.width = mem + '%';
+    document.getElementById('memBar').style.animation = 'none';
+    document.getElementById('netBar').style.width = net + '%';
+    document.getElementById('netBar').style.animation = 'none';
+
+    document.getElementById('sysStatus').textContent = '■ OPERATIONNEL';
+    document.getElementById('bottomTitle').textContent = `J.A.R.V.I.S v${data.version}`;
+    document.getElementById('sysTemp').textContent = '36.4°C';
+
+  } catch (error) {
+    console.error('Erreur fetch system:', error);
+    document.getElementById('sysStatus').textContent = '■ HORS LIGNE';
+    document.getElementById('sysStatus').style.color = 'var(--orange)';
+  }
+}
+
+// ============================================================
+// ARC REACTEUR
+// ============================================================
+async function fetchPowerData() {
+  try {
+    const response = await fetch(`${API_BASE}/power`);
+    const data = await response.json();
+
+    document.getElementById('powerVal').innerHTML = `${data.power} <span style="font-size:0.55rem">GW</span>`;
+    document.getElementById('effVal').textContent = data.efficiency + '%';
+    document.getElementById('tempVal').textContent = data.temperature + 'K°C';
+  } catch (error) {
+    console.error('Erreur fetch power:', error);
+  }
+}
+
+// ============================================================
+// LOCALISATION
+// ============================================================
+async function fetchLocation() {
+  try {
+    const response = await fetch(`${API_BASE}/location`);
+    const data = await response.json();
+
+    document.getElementById('locationInfo').innerHTML = `
+      <div>VILLE: <span style="color:var(--c)">${data.city}</span></div>
+      <div>PAYS: <span style="color:var(--c)">${data.country}</span></div>
+      <div>ALTITUDE: <span style="color:var(--c)">${data.altitude} m</span></div>
+    `;
+    document.getElementById('gpsSignal').textContent = data.gps_signal;
+    document.getElementById('gpsBar').style.width = '91%';
+    document.getElementById('gpsBar').style.animation = 'none';
+  } catch (error) {
+    console.error('Erreur fetch location:', error);
+  }
+}
+
+// ============================================================
+// GRAPHIQUE PUISSANCE
+// ============================================================
+const pc = document.getElementById('powerChart');
+for(let i=0;i<18;i++){
+  const b = document.createElement('div'); b.className='mbar';
+  b.style.height=(20+Math.random()*80)+'%';
+  b.style.animationDelay=(Math.random()*2)+'s';
+  b.style.animationDuration=(0.8+Math.random()*1.2)+'s';
+  b.style.opacity=0.4+Math.random()*0.5;
+  pc.appendChild(b);
+}
+setInterval(()=>{ pc.querySelectorAll('.mbar').forEach(b=>{ b.style.height=(15+Math.random()*85)+'%'; }); }, 900);
+
+// ============================================================
+// WAVEFORM
+// ============================================================
+const wb = document.getElementById('waveBars');
+for(let i=0;i<28;i++){
+  const b = document.createElement('div'); b.className='wbar';
+  b.style.height=(8+Math.random()*85)+'%';
+  wb.appendChild(b);
+}
+setInterval(()=>{ wb.querySelectorAll('.wbar').forEach(b=>{ b.style.height=(5+Math.random()*90)+'%'; }); }, 250);
+
+// ============================================================
+// CHAT
+// ============================================================
+const chatLines = document.getElementById('chatLines');
+
+function addChatLine(role, text) {
+  const div = document.createElement('div');
+  div.className = 'chat-line ' + role;
+  div.textContent = (role === 'user' ? '[VOUS] ' : '') + text;
+  chatLines.appendChild(div);
+  chatLines.scrollTop = chatLines.scrollHeight;
+  if(role === 'jarvis') {
+    reqCount++;
+    document.getElementById('reqCount').textContent = reqCount;
+  }
+}
+
+// ============================================================
+// ENVOI MESSAGE A L'API
+// ============================================================
+async function sendMessage(text) {
+  const input = document.getElementById('chatInput');
+  const message = text || input.value.trim();
+  if(!message) return;
+
+  if(!text) {
+    input.value = '';
+  }
+
+  addChatLine('user', message);
+
+  // Animation d'ecoute
+  document.getElementById('coreText').innerHTML = 'TRAI-<br>TEMENT';
+  document.getElementById('voiceMatch').textContent = 'TRAITEMENT';
+  document.getElementById('voiceConf').textContent = '...';
+
+  try {
+    const response = await fetch(`${API_BASE}/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: message, history: true, speak: true })
+    });
+
+    const data = await response.json();
+
+    setTimeout(() => {
+      addChatLine('jarvis', data.response);
+      document.getElementById('coreText').innerHTML = 'EN<br>LIGNE';
+      document.getElementById('voiceMatch').textContent = 'PROPRIETAIRE';
+      document.getElementById('voiceConf').textContent = '99.4%';
+    }, 500);
+
+  } catch (error) {
+    setTimeout(() => {
+      addChatLine('jarvis', 'Erreur de connexion au serveur. Verifiez que le backend est demarre avec: python backend/app.py');
+      document.getElementById('coreText').innerHTML = 'ERREUR';
+    }, 500);
+  }
+}
+
+function handleKeyPress(event) {
+  if(event.key === 'Enter') sendMessage();
+}
+
+// ============================================================
+// RECONNAISSANCE VOCALE (Web Speech API)
+// ============================================================
+let recognition = null;
+let micActive = false;
+let voiceSupported = false;
+
+// Verifier le support de la reconnaissance vocale
+if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  recognition = new SpeechRecognition();
+  recognition.lang = 'fr-FR';
+  recognition.continuous = false;
+  recognition.interimResults = false;
+
+  recognition.onstart = function() {
+    micActive = true;
+    document.getElementById('micBtn').classList.add('active');
+    document.getElementById('micBtn').classList.remove('error');
+    document.getElementById('micIcon').textContent = '🔴';
+    document.getElementById('listenLabel').textContent = '// EN ECOUTE...';
+    document.getElementById('listenLabel').classList.add('show');
+    document.getElementById('listenLabel').classList.remove('error');
+    document.getElementById('coreText').innerHTML = 'ECO-<br>UTE';
+    document.getElementById('voiceMatch').textContent = 'ECOUTE';
+    document.getElementById('voiceConf').textContent = '...';
+
+    // Animation wave bars
+    document.querySelectorAll('.wbar').forEach(b => {
+      b.style.height = (30 + Math.random() * 60) + '%';
+    });
+  };
+
+  recognition.onresult = function(event) {
+    const transcript = event.results[0][0].transcript;
+    const confidence = Math.round(event.results[0][0].confidence * 100);
+
+    document.getElementById('voiceMatch').textContent = 'DETECTEE';
+    document.getElementById('voiceConf').textContent = confidence + '%';
+
+    // Envoyer la commande vocale au backend
+    addChatLine('user', '[VOIX] ' + transcript);
+
+    // Envoyer au backend pour traitement
+    fetch(`${API_BASE}/voice/command`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: transcript, speak: true })
+    })
+    .then(res => res.json())
+    .then(data => {
+      addChatLine('jarvis', data.response);
+    })
+    .catch(() => {
+      // Fallback: envoyer au chat normal
+      sendMessage(transcript);
+    });
+  };
+
+  recognition.onerror = function(event) {
+    console.error('Erreur reconnaissance vocale:', event.error);
+    document.getElementById('micBtn').classList.add('error');
+    document.getElementById('listenLabel').textContent = '// ERREUR: ' + event.error;
+    document.getElementById('listenLabel').classList.add('error');
+    document.getElementById('voiceMatch').textContent = 'ERREUR';
+    document.getElementById('voiceConf').textContent = event.error;
+
+    if (event.error === 'not-allowed') {
+      document.getElementById('listenLabel').textContent = '// MICRO BLOQUE - Autorisez l'acces';
+    }
+  };
+
+  recognition.onend = function() {
+    micActive = false;
+    document.getElementById('micBtn').classList.remove('active');
+    document.getElementById('micBtn').classList.remove('error');
+    document.getElementById('micIcon').textContent = '🎙️';
+    document.getElementById('listenLabel').classList.remove('show');
+    document.getElementById('listenLabel').classList.remove('error');
+    document.getElementById('coreText').innerHTML = 'EN<br>LIGNE';
+    document.getElementById('voiceMatch').textContent = 'PROPRIETAIRE';
+    document.getElementById('voiceConf').textContent = '99.4%';
+  };
+
+  voiceSupported = true;
+} else {
+  console.warn('Reconnaissance vocale non supportee. Utilisez Chrome ou Edge.');
+}
+
+function toggleMic() {
+  if (!voiceSupported) {
+    alert('La reconnaissance vocale n'est pas supportee par votre navigateur.
+Utilisez Google Chrome ou Microsoft Edge.');
+    return;
+  }
+
+  if (micActive) {
+    recognition.stop();
+  } else {
+    try {
+      recognition.start();
+    } catch(e) {
+      console.error('Erreur start:', e);
+    }
+  }
+}
+
+// Espace pour activer le micro
+document.addEventListener('keydown', e => {
+  if (e.code === 'Space' && document.activeElement.tagName !== 'INPUT') {
+    e.preventDefault();
+    toggleMic();
+  }
+});
+
+// ============================================================
+// PARTICULES
+// ============================================================
+function createParticle(){
+  const p=document.createElement('div'); p.className='particle';
+  p.style.left=Math.random()*100+'vw'; p.style.top='-5px';
+  const dur=6+Math.random()*12;
+  p.style.animationDuration=dur+'s';
+  p.style.animationDelay=(-Math.random()*dur)+'s';
+  p.style.opacity=0.15+Math.random()*0.45;
+  document.body.appendChild(p);
+  setTimeout(()=>p.remove(), dur*1000+200);
+}
+setInterval(createParticle, 1000);
+
+// ============================================================
+// STATUS BADGES
+// ============================================================
+const statusMsgs=['● SYSTEME EN LIGNE','● ANALYSE EN COURS','● TOUS SYSTEMES OK','● API ACTIVE','● MEMOIRE STABLE','● RECONNAISSANCE VOCALE PRETE'];
+let sIdx=0;
+setInterval(()=>{ sIdx=(sIdx+1)%statusMsgs.length; document.getElementById('statusBadge').textContent=statusMsgs[sIdx]; },4000);
+
+// ============================================================
+// BOTTOM STATUS
+// ============================================================
+const bottomMsgs=['TOUS SYSTEMES NOMINAUX','ANALYSE ENVIRONNEMENT','MISTRAL AI < 200ms','RADAR: ZONE SECURISEE','AUCUNE MENACE DETECTEE','COMMANDES VOCALES ACTIVES'];
+setInterval(()=>{ document.getElementById('bottomStatus').textContent=bottomMsgs[Math.floor(Math.random()*bottomMsgs.length)]; },3200);
+
+// ============================================================
+// CORE TEXT CYCLE
+// ============================================================
+const coreTexts=['EN
+LIGNE','PRET','ACTIF','98.7%','SYNC'];
+let cIdx=0;
+setInterval(()=>{ if(!micActive){ cIdx=(cIdx+1)%coreTexts.length; document.getElementById('coreText').innerHTML=coreTexts[cIdx].replace('
+','<br>'); } },3500);
+
+// ============================================================
+// COMMANDES VOCALES DISPONIBLES (affichage)
+// ============================================================
+const voiceCommands = [
+  '"Bonjour JARVIS" - Salutation',
+  '"Quelle heure est-il ?" - Heure',
+  '"Quel jour sommes-nous ?" - Date',
+  '"Statut systeme" - Performances',
+  '"Calcule 25 fois 4" - Calcul',
+  '"Raconte-moi une blague" - Divertissement',
+  '"Qui es-tu ?" - Identite',
+];
+
+// ============================================================
+// INITIALISATION
+// ============================================================
+setTimeout(() => {
+  fetchSystemData();
+  fetchLocation();
+  addChatLine('jarvis', 'Systeme initialise. Bonjour.');
+  addChatLine('jarvis', 'Connecte a Mistral AI Engine.');
+
+  if (voiceSupported) {
+    addChatLine('jarvis', 'Reconnaissance vocale activee. Cliquez sur le micro ou appuyez sur ESPACE pour parler.');
+    document.getElementById('voiceStatus').textContent = 'PRETE';
+  } else {
+    addChatLine('jarvis', 'Reconnaissance vocale non disponible. Utilisez Chrome ou Edge pour l'activer.');
+    document.getElementById('voiceStatus').textContent = 'INDISPONIBLE';
+    document.getElementById('voiceStatus').style.color = 'var(--orange)';
+  }
+
+  addChatLine('jarvis', 'En attente de vos instructions.');
+}, 3200);
+
+// ============================================================
+// MISE A JOUR PERIODIQUE
+// ============================================================
+setInterval(fetchSystemData, 2200);
+setInterval(fetchPowerData, 1500);
+</script>
+</body>
+</html>

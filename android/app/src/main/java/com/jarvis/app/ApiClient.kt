@@ -9,7 +9,7 @@ import java.util.concurrent.TimeUnit
 
 object ApiClient {
 
-    private const val DEFAULT_BASE_URL = "https://jarvis-ai.onrender.com/"
+    private const val DEFAULT_BASE_URL = "https://jarvis-fylf.onrender.com"
     private const val LOCAL_BASE_URL = "http://10.0.2.2:5000/" // Android emulator
 
     private var baseUrl: String = DEFAULT_BASE_URL

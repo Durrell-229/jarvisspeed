@@ -321,6 +321,8 @@ body::after {
     <div style="display:flex;gap:20px;align-items:center;">
       <div class="top-status"><span>PROTOCOLE: ALPHA-7</span><span>ACCES: AUTORISE</span></div>
       <div class="top-time" id="clock">--:--:--</div>
+      <button onclick="toggleTTS()" style="background:transparent;border:1px solid var(--c);color:var(--c);padding:2px 8px;cursor:pointer;font-family:'Share Tech Mono',monospace;font-size:0.55rem;letter-spacing:0.1em;" id="ttsBtn" title="Toggle voix">🔊 VOIX</button>
+      <button onclick="toggleConfigPanel()" style="background:transparent;border:1px solid var(--c2);color:var(--c2);padding:2px 8px;cursor:pointer;font-family:'Share Tech Mono',monospace;font-size:0.55rem;letter-spacing:0.1em;" title="Configuration API">⚙ API</button>
     </div>
   </div>
 
@@ -510,7 +512,7 @@ body::after {
 // ============================================================
 // CONFIGURATION
 // ============================================================
-const API_BASE = 'http://localhost:5000/api';
+const API_BASE = '/api';
 
 // ============================================================
 // CURSEUR
@@ -536,65 +538,79 @@ function updateClock() {
 setInterval(updateClock, 1000); updateClock();
 
 // ============================================================
-// UPTIME
-// ============================================================
-let startTime = Date.now();
-function updateUptime() {
-  const e = Math.floor((Date.now()-startTime)/1000);
-  const pad = n => String(n).padStart(2,'0');
-  document.getElementById('uptime').textContent = `${pad(Math.floor(e/3600))}:${pad(Math.floor((e%3600)/60))}:${pad(e%60)}`;
-}
-setInterval(updateUptime, 1000);
-
-// ============================================================
 // DONNEES SYSTEME REELLES
 // ============================================================
 let reqCount = 0;
+let backendUptime = '';
+let backendOnline = false;
 
 async function fetchSystemData() {
   try {
     const response = await fetch(`${API_BASE}/status`);
+    if (!response.ok) throw new Error('HTTP ' + response.status);
     const data = await response.json();
 
     reqCount = data.request_count;
     document.getElementById('reqCount').textContent = reqCount;
     document.getElementById('versionNum').textContent = data.version;
     document.getElementById('engineName').textContent = data.engine.toUpperCase();
+    backendUptime = data.uptime;
+    document.getElementById('uptime').textContent = backendUptime;
 
-    // CPU, Memoire, Reseau
     const cpu = Math.round(data.system.cpu);
     const mem = Math.round(data.system.memory);
-    let net = 0; // Valeur par défaut pour le réseau
+    let net = 0;
 
-    // Vérification de la présence des données réseau avant calcul
-    if (data.system.network && data.system.network.download_speed !== undefined && data.system.network.download_speed !== null) {
-        // Le calcul original était potentiellement problématique s'il produisait NaN.
-        // J'ai ajouté des vérifications pour le rendre plus robuste.
-        net = Math.min(99, Math.round((data.system.network.download_speed / 10000) * 100));
-    } else {
-        console.warn("Données réseau manquantes ou invalides. Valeur par défaut à 0.");
-        net = 0; // Assurer que net est 0 si les données sont absentes
+    if (data.system.network && typeof data.system.network.download_speed === 'number') {
+      net = Math.min(99, Math.round((data.system.network.download_speed / 10000) * 100));
     }
 
     document.getElementById('cpu').textContent = cpu + '%';
     document.getElementById('mem').textContent = mem + '%';
-    document.getElementById('net').textContent = net + '%'; // Mise à jour du texte
+    document.getElementById('net').textContent = net + '%';
 
     document.getElementById('cpuBar').style.width = cpu + '%';
     document.getElementById('cpuBar').style.animation = 'none';
     document.getElementById('memBar').style.width = mem + '%';
     document.getElementById('memBar').style.animation = 'none';
-    document.getElementById('netBar').style.width = net + '%'; // Mise à jour de la barre
+    document.getElementById('netBar').style.width = net + '%';
     document.getElementById('netBar').style.animation = 'none';
 
     document.getElementById('sysStatus').textContent = '■ OPERATIONNEL';
+    document.getElementById('sysStatus').style.color = 'var(--green)';
     document.getElementById('bottomTitle').textContent = `J.A.R.V.I.S v${data.version}`;
-    document.getElementById('sysTemp').textContent = '36.4°C'; // Ceci est une valeur statique pour la température système
 
+    if (!backendOnline) {
+      backendOnline = true;
+      document.getElementById('statusBadge').textContent = '● SYSTEME EN LIGNE';
+      document.getElementById('statusBadge').style.borderColor = 'var(--green)';
+      document.getElementById('statusBadge').style.color = 'var(--green)';
+    }
   } catch (error) {
     console.error('Erreur fetch system:', error);
+    backendOnline = false;
     document.getElementById('sysStatus').textContent = '■ HORS LIGNE';
     document.getElementById('sysStatus').style.color = 'var(--orange)';
+    document.getElementById('statusBadge').textContent = '● SERVEUR HORS LIGNE';
+    document.getElementById('statusBadge').style.borderColor = 'var(--orange)';
+    document.getElementById('statusBadge').style.color = 'var(--orange)';
+  }
+}
+
+// ============================================================
+// HEALTH CHECK
+// ============================================================
+async function fetchHealth() {
+  try {
+    const response = await fetch(`${API_BASE}/health`);
+    if (!response.ok) throw new Error('HTTP ' + response.status);
+    const data = await response.json();
+    document.getElementById('voiceStatus').textContent = data.voice_enabled ? 'ACTIVEE' : 'OFF';
+    document.getElementById('voiceStatus').style.color = data.voice_enabled ? 'var(--green)' : 'var(--orange)';
+    backendUptime = data.uptime;
+    document.getElementById('uptime').textContent = backendUptime;
+  } catch (error) {
+    // Silencieux - fetchSystemData gere deja l'affichage
   }
 }
 
@@ -604,6 +620,7 @@ async function fetchSystemData() {
 async function fetchPowerData() {
   try {
     const response = await fetch(`${API_BASE}/power`);
+    if (!response.ok) throw new Error('HTTP ' + response.status);
     const data = await response.json();
 
     document.getElementById('powerVal').innerHTML = `${data.power} <span style="font-size:0.55rem">GW</span>`;
@@ -620,6 +637,7 @@ async function fetchPowerData() {
 async function fetchLocation() {
   try {
     const response = await fetch(`${API_BASE}/location`);
+    if (!response.ok) throw new Error('HTTP ' + response.status);
     const data = await response.json();
 
     document.getElementById('locationInfo').innerHTML = `
@@ -665,15 +683,63 @@ setInterval(()=>{ wb.querySelectorAll('.wbar').forEach(b=>{ b.style.height=(5+Ma
 // ============================================================
 const chatLines = document.getElementById('chatLines');
 
-function addChatLine(role, text) {
+function addChatLine(role, text, meta) {
   const div = document.createElement('div');
   div.className = 'chat-line ' + role;
-  div.textContent = (role === 'user' ? '[VOUS] ' : '') + text;
+  let prefix = role === 'user' ? '[VOUS] ' : '';
+  let content = text;
+
+  // Afficher l'action exécutée si présente
+  if (meta && meta.action_executed) {
+    const actionBadge = document.createElement('div');
+    actionBadge.style.cssText = 'font-size:0.52rem;color:var(--orange);margin-bottom:2px;padding:2px 6px;border:1px solid rgba(255,107,43,0.3);';
+    actionBadge.textContent = '⚡ ACTION: ' + meta.action_executed;
+    chatLines.appendChild(actionBadge);
+  }
+
+  div.textContent = prefix + content;
   chatLines.appendChild(div);
   chatLines.scrollTop = chatLines.scrollHeight;
   if(role === 'jarvis') {
     reqCount++;
     document.getElementById('reqCount').textContent = reqCount;
+  }
+}
+
+function clearChat() {
+  chatLines.innerHTML = '';
+  fetch(`${API_BASE}/chat/clear`, { method: 'POST' })
+    .catch(() => {});
+}
+
+async function loadChatHistory() {
+  try {
+    const response = await fetch(`${API_BASE}/chat/history`);
+    if (!response.ok) return;
+    const data = await response.json();
+    if (data.history && data.history.length > 0) {
+      data.history.forEach(msg => {
+        if (msg.role === 'user') addChatLine('user', msg.content);
+        else if (msg.role === 'assistant') addChatLine('jarvis', msg.content);
+      });
+    }
+  } catch (error) {
+    // Historique non disponible, pas critique
+  }
+}
+
+async function listActions() {
+  try {
+    const response = await fetch(`${API_BASE}/actions`);
+    if (!response.ok) return;
+    const data = await response.json();
+    let msg = 'Actions disponibles:';
+    for (const [name, desc] of Object.entries(data.actions)) {
+      msg += '\n• ' + name + ' - ' + desc;
+    }
+    addChatLine('jarvis', msg);
+  } catch (error) {
+    addChatLine('jarvis', 'Impossible de lister les actions.');
   }
 }
 
@@ -691,7 +757,6 @@ async function sendMessage(text) {
 
   addChatLine('user', message);
 
-  // Animation d'ecoute
   document.getElementById('coreText').innerHTML = 'TRAI-<br>TEMENT';
   document.getElementById('voiceMatch').textContent = 'TRAITEMENT';
   document.getElementById('voiceConf').textContent = '...';
@@ -700,13 +765,18 @@ async function sendMessage(text) {
     const response = await fetch(`${API_BASE}/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message: message, history: true, speak: true })
+      body: JSON.stringify({ message: message, history: true, speak: ttsEnabled })
     });
 
+    if (!response.ok) throw new Error('HTTP ' + response.status);
     const data = await response.json();
 
     setTimeout(() => {
-      addChatLine('jarvis', data.response);
+      addChatLine('jarvis', data.response, {
+        action_executed: data.action_executed,
+        action_result: data.action_result,
+        type: data.type
+      });
       document.getElementById('coreText').innerHTML = 'EN<br>LIGNE';
       document.getElementById('voiceMatch').textContent = 'PROPRIETAIRE';
       document.getElementById('voiceConf').textContent = '99.4%';
@@ -714,9 +784,6 @@ async function sendMessage(text) {
 
   } catch (error) {
     setTimeout(() => {
-      // Note: The error message here has a hardcoded path `backend/app.py`.
-      // This should be updated if app.py is moved to root.
-      // Corrected path is `app.py`
       addChatLine('jarvis', 'Erreur de connexion au serveur. Verifiez que le backend est demarre avec: python app.py');
       document.getElementById('coreText').innerHTML = 'ERREUR';
     }, 500);
@@ -728,13 +795,81 @@ function handleKeyPress(event) {
 }
 
 // ============================================================
+// TTS CONTROLS
+// ============================================================
+let ttsEnabled = true;
+
+async function toggleTTS() {
+  try {
+    const response = await fetch(`${API_BASE}/tts/enable`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ enabled: !ttsEnabled })
+    });
+    if (!response.ok) return;
+    const data = await response.json();
+    ttsEnabled = data.enabled;
+    document.getElementById('voiceStatus').textContent = ttsEnabled ? 'ACTIVEE' : 'OFF';
+    document.getElementById('voiceStatus').style.color = ttsEnabled ? 'var(--green)' : 'var(--orange)';
+    addChatLine('jarvis', ttsEnabled ? 'Voix activee.' : 'Voix desactivee.');
+  } catch (error) {
+    ttsEnabled = !ttsEnabled;
+  }
+}
+
+// ============================================================
+// API KEY CONFIG
+// ============================================================
+let configPanelVisible = false;
+
+function toggleConfigPanel() {
+  configPanelVisible = !configPanelVisible;
+  let panel = document.getElementById('configPanel');
+  if (configPanelVisible) {
+    if (!panel) {
+      panel = document.createElement('div');
+      panel.id = 'configPanel';
+      panel.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(0,8,16,0.95);border:1px solid var(--c);padding:20px;z-index:200;min-width:320px;';
+      panel.innerHTML = `
+        <div class="wlabel">// CONFIGURATION API</div>
+        <input type="password" id="apiKeyInput" placeholder="Clef API Mistral..." style="width:100%;background:var(--c4);border:1px solid rgba(0,212,255,0.2);color:var(--c);padding:8px;font-family:'Share Tech Mono',monospace;font-size:0.65rem;outline:none;margin:8px 0;">
+        <div style="display:flex;gap:6px;">
+          <button onclick="saveApiKey()" style="flex:1;background:var(--c);color:var(--bg);border:none;padding:6px;cursor:pointer;font-family:'Share Tech Mono',monospace;font-weight:700;">SAUVEGARDER</button>
+          <button onclick="toggleConfigPanel()" style="flex:1;background:transparent;border:1px solid var(--c);color:var(--c);padding:6px;cursor:pointer;font-family:'Share Tech Mono',monospace;">FERMER</button>
+        </div>
+      `;
+      document.body.appendChild(panel);
+    }
+    panel.style.display = 'block';
+  } else if (panel) {
+    panel.style.display = 'none';
+  }
+}
+
+async function saveApiKey() {
+  const key = document.getElementById('apiKeyInput').value.trim();
+  if (!key) return;
+  try {
+    const response = await fetch(`${API_BASE}/config`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ api_key: key })
+    });
+    if (!response.ok) throw new Error('HTTP ' + response.status);
+    addChatLine('jarvis', 'Clef API Mistral configuree avec succes.');
+    toggleConfigPanel();
+  } catch (error) {
+    addChatLine('jarvis', 'Erreur lors de la configuration de la cle API.');
+  }
+}
+
+// ============================================================
 // RECONNAISSANCE VOCALE (Web Speech API)
 // ============================================================
 let recognition = null;
 let micActive = false;
 let voiceSupported = false;
 
-// Verifier le support de la reconnaissance vocale
 if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   recognition = new SpeechRecognition();
@@ -754,7 +889,6 @@ if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
     document.getElementById('voiceMatch').textContent = 'ECOUTE';
     document.getElementById('voiceConf').textContent = '...';
 
-    // Animation wave bars
     document.querySelectorAll('.wbar').forEach(b => {
       b.style.height = (30 + Math.random() * 60) + '%';
     });
@@ -767,21 +901,21 @@ if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
     document.getElementById('voiceMatch').textContent = 'DETECTEE';
     document.getElementById('voiceConf').textContent = confidence + '%';
 
-    // Envoyer la commande vocale au backend
     addChatLine('user', '[VOIX] ' + transcript);
 
-    // Envoyer au backend pour traitement
     fetch(`${API_BASE}/voice/command`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text: transcript, speak: true })
+      body: JSON.stringify({ text: transcript })
     })
     .then(res => res.json())
     .then(data => {
-      addChatLine('jarvis', data.response);
+      addChatLine('jarvis', data.response, {
+        action_executed: data.action_executed || null,
+        type: 'voice'
+      });
     })
     .catch(() => {
-      // Fallback: envoyer au chat normal
       sendMessage(transcript);
     });
   };
@@ -795,7 +929,7 @@ if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
     document.getElementById('voiceConf').textContent = event.error;
 
     if (event.error === 'not-allowed') {
-      document.getElementById('listenLabel').textContent = '// MICRO BLOQUE - Autorisez l'acces';
+      document.getElementById('listenLabel').textContent = '// MICRO BLOQUE - Autorisez l\'acces';
     }
   };
 
@@ -818,8 +952,7 @@ if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
 
 function toggleMic() {
   if (!voiceSupported) {
-    alert('La reconnaissance vocale n'est pas supportee par votre navigateur.
-Utilisez Google Chrome ou Microsoft Edge.');
+    alert('La reconnaissance vocale n\'est pas supportee par votre navigateur.\nUtilisez Google Chrome ou Microsoft Edge.');
     return;
   }
 
@@ -834,7 +967,6 @@ Utilisez Google Chrome ou Microsoft Edge.');
   }
 }
 
-// Espace pour activer le micro
 document.addEventListener('keydown', e => {
   if (e.code === 'Space' && document.activeElement.tagName !== 'INPUT') {
     e.preventDefault();
@@ -873,11 +1005,9 @@ setInterval(()=>{ document.getElementById('bottomStatus').textContent=bottomMsgs
 // ============================================================
 // CORE TEXT CYCLE
 // ============================================================
-const coreTexts=['EN
-LIGNE','PRET','ACTIF','98.7%','SYNC'];
+const coreTexts=['EN LIGNE','PRET','ACTIF','98.7%','SYNC'];
 let cIdx=0;
-setInterval(()=>{ if(!micActive){ cIdx=(cIdx+1)%coreTexts.length; document.getElementById('coreText').innerHTML=coreTexts[cIdx].replace('
-','<br>'); } },3500);
+setInterval(()=>{ if(!micActive){ cIdx=(cIdx+1)%coreTexts.length; document.getElementById('coreText').textContent=coreTexts[cIdx]; } },3500);
 
 // ============================================================
 // COMMANDES VOCALES DISPONIBLES (affichage)
@@ -893,11 +1023,59 @@ const voiceCommands = [
 ];
 
 // ============================================================
+// COMMANDES CHAT SPECIALES
+// ============================================================
+function handleSpecialCommand(message) {
+  const lower = message.toLowerCase().trim();
+  if (lower === '/clear' || lower === '/effacer') {
+    clearChat();
+    return true;
+  }
+  if (lower === '/tts' || lower === '/voix') {
+    toggleTTS();
+    return true;
+  }
+  if (lower === '/config' || lower === '/api') {
+    toggleConfigPanel();
+    return true;
+  }
+  if (lower === '/history' || lower === '/historique') {
+    clearChat();
+    loadChatHistory();
+    return true;
+  }
+  if (lower === '/actions' || lower === '/capabilities') {
+    listActions();
+    return true;
+  }
+  if (lower === '/help' || lower === '/aide') {
+    addChatLine('jarvis', 'Commandes: /clear (effacer), /tts (voix), /config (cle API), /history (historique), /actions (capacites), /help (aide). Dites "ouvre Chrome", "monte le volume", "pause musique", "liste mes fichiers", "cherche X sur YouTube"...');
+    return true;
+  }
+  return false;
+}
+
+// Override sendMessage pour gerer les commandes spéciales
+const _originalSendMessage = sendMessage;
+sendMessage = function(text) {
+  const input = document.getElementById('chatInput');
+  const message = text || input.value.trim();
+  if (!message) return;
+  if (!text && handleSpecialCommand(message)) {
+    if (!text) input.value = '';
+    return;
+  }
+  _originalSendMessage(text);
+};
+
+// ============================================================
 // INITIALISATION
 // ============================================================
 setTimeout(() => {
   fetchSystemData();
   fetchLocation();
+  fetchHealth();
+  loadChatHistory();
   addChatLine('jarvis', 'Systeme initialise. Bonjour.');
   addChatLine('jarvis', 'Connecte a Mistral AI Engine.');
 
@@ -905,11 +1083,12 @@ setTimeout(() => {
     addChatLine('jarvis', 'Reconnaissance vocale activee. Cliquez sur le micro ou appuyez sur ESPACE pour parler.');
     document.getElementById('voiceStatus').textContent = 'PRETE';
   } else {
-    addChatLine('jarvis', 'Reconnaissance vocale non disponible. Utilisez Chrome ou Edge pour l'activer.');
+    addChatLine('jarvis', 'Reconnaissance vocale non disponible. Utilisez Chrome ou Edge pour l\'activer.');
     document.getElementById('voiceStatus').textContent = 'INDISPONIBLE';
     document.getElementById('voiceStatus').style.color = 'var(--orange)';
   }
 
+  addChatLine('jarvis', 'Tapez /help pour voir les commandes disponibles.');
   addChatLine('jarvis', 'En attente de vos instructions.');
 }, 3200);
 
@@ -918,6 +1097,7 @@ setTimeout(() => {
 // ============================================================
 setInterval(fetchSystemData, 2200);
 setInterval(fetchPowerData, 1500);
+setInterval(fetchHealth, 5000);
 </script>
 </body>
 </html>

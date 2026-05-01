@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: jarvis-ai
+    env: python
+    region: oregon
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn --bind 0.0.0.0:$PORT app:app --timeout 120
+    envVars:
+      - key: MISTRAL_API_KEY
+        generateValue: false
+      - key: PYTHON_VERSION
+        value: 3.12.0
+      - key: FLASK_DEBUG
+        value: "false"
+    healthCheckPath: /api/health
+    autoDeploy: true

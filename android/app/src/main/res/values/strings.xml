@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">J.A.R.V.I.S</string>
+    <string name="app_subtitle">Just A Rather Very Intelligent System</string>
+    <string name="hint_message">Entrez votre message...</string>
+    <string name="btn_send">ENVOYER</string>
+    <string name="btn_voice">VOIX</string>
+    <string name="btn_config">API</string>
+    <string name="listening">EN ECOUTE...</string>
+    <string name="press_space">[ ESPACE ] OU CLIC POUR ACTIVER</string>
+    <string name="initializing">INITIALISATION DU SYSTEME...</string>
+    <string name="system_online">SYSTEME EN LIGNE</string>
+    <string name="system_offline">SERVEUR HORS LIGNE</string>
+    <string name="api_key_hint">Cle API Mistral...</string>
+    <string name="api_key_save">SAUVEGARDER</string>
+    <string name="api_key_close">FERMER</string>
+    <string name="permission_audio">Permission microphone requise</string>
+    <string name="error_no_api">Cle API non configuree</string>
+    <string name="error_network">Erreur reseau</string>
+    <string name="welcome">Systeme initialise. Bonjour.</string>
+</resources>

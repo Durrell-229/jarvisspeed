@@ -1,0 +1,316 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/rootLayout"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#000810"
+    android:orientation="vertical">
+
+    <!-- TOP BAR -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:orientation="horizontal"
+        android:padding="8dp"
+        android:gravity="center_vertical">
+
+        <TextView
+            android:id="@+id/statusBadge"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="● SYSTEME EN LIGNE"
+            android:textColor="#00FF88"
+            android:textSize="10sp"
+            android:fontFamily="monospace"
+            android:letterSpacing="0.15"/>
+
+        <TextView
+            android:id="@+id/clock"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="--:--:--"
+            android:textColor="#00D4FF"
+            android:textSize="14sp"
+            android:fontFamily="monospace"
+            android:layout_marginEnd="8dp"/>
+
+        <Button
+            android:id="@+id/btnVoice"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="🔊"
+            android:textSize="12sp"
+            android:minWidth="40dp"
+            android:minHeight="32dp"
+            android:padding="4dp"
+            android:backgroundTint="#0099CC"
+            android:layout_marginEnd="4dp"/>
+
+        <Button
+            android:id="@+id/btnConfig"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="⚙"
+            android:textSize="12sp"
+            android:minWidth="40dp"
+            android:minHeight="32dp"
+            android:padding="4dp"
+            android:backgroundTint="#0099CC"/>
+    </LinearLayout>
+
+    <!-- TITLE -->
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="J.A.R.V.I.S"
+        android:textColor="#00D4FF"
+        android:textSize="18sp"
+        android:fontFamily="monospace"
+        android:textStyle="bold"
+        android:gravity="center"
+        android:letterSpacing="0.3"
+        android:padding="4dp"/>
+
+    <!-- STATUS INFO -->
+    <LinearLayout
+        android:id="@+id/statusPanel"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="8dp"
+        android:background="#0A1628"
+        android:layout_margin="4dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="CPU"
+                android:textColor="#0099CC"
+                android:textSize="9sp"
+                android:fontFamily="monospace"/>
+            <TextView
+                android:id="@+id/cpuText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="--%"
+                android:textColor="#00D4FF"
+                android:textSize="9sp"
+                android:fontFamily="monospace"/>
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginTop="2dp">
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="MEM"
+                android:textColor="#0099CC"
+                android:textSize="9sp"
+                android:fontFamily="monospace"/>
+            <TextView
+                android:id="@+id/memText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="--%"
+                android:textColor="#00D4FF"
+                android:textSize="9sp"
+                android:fontFamily="monospace"/>
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginTop="2dp">
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="UPTIME"
+                android:textColor="#0099CC"
+                android:textSize="9sp"
+                android:fontFamily="monospace"/>
+            <TextView
+                android:id="@+id/uptimeText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="--:--:--"
+                android:textColor="#00FF88"
+                android:textSize="9sp"
+                android:fontFamily="monospace"/>
+        </LinearLayout>
+    </LinearLayout>
+
+    <!-- CHAT AREA -->
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="// INTERFACE DIALOGUE"
+        android:textColor="#0099CC"
+        android:textSize="9sp"
+        android:fontFamily="monospace"
+        android:letterSpacing="0.2"
+        android:paddingStart="8dp"
+        android:paddingTop="4dp"/>
+
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/chatRecyclerView"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:layout_margin="4dp"
+        android:background="#0A1628"
+        android:padding="4dp"
+        android:clipToPadding="false"/>
+
+    <!-- CORE STATUS -->
+    <TextView
+        android:id="@+id/coreText"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="EN LIGNE"
+        android:textColor="#00D4FF"
+        android:textSize="14sp"
+        android:fontFamily="monospace"
+        android:gravity="center"
+        android:padding="4dp"
+        android:letterSpacing="0.2"/>
+
+    <!-- INPUT AREA -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:padding="4dp"
+        android:background="#0A1628">
+
+        <EditText
+            android:id="@+id/chatInput"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:hint="@string/hint_message"
+            android:textColor="#00D4FF"
+            android:textColorHint="#0099CC"
+            android:textSize="13sp"
+            android:fontFamily="monospace"
+            android:background="#0A1628"
+            android:padding="8dp"
+            android:minHeight="40dp"
+            android:maxLines="3"
+            android:inputType="textCapSentences"
+            android:layout_marginEnd="4dp"/>
+
+        <Button
+            android:id="@+id/btnSend"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="ENVOYER"
+            android:textSize="10sp"
+            android:textColor="#000810"
+            android:minWidth="80dp"
+            android:minHeight="40dp"
+            android:backgroundTint="#00D4FF"/>
+    </LinearLayout>
+
+    <!-- MIC BUTTON -->
+    <Button
+        android:id="@+id/btnMic"
+        android:layout_width="64dp"
+        android:layout_height="64dp"
+        android:layout_gravity="center"
+        android:text="🎙️"
+        android:textSize="24sp"
+        android:backgroundTint="#0A1628"
+        android:strokeColor="#00D4FF"
+        android:layout_margin="8dp"/>
+
+    <!-- BOTTOM STATUS -->
+    <TextView
+        android:id="@+id/bottomStatus"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="TOUS SYSTEMES NOMINAUX"
+        android:textColor="#0099CC"
+        android:textSize="9sp"
+        android:fontFamily="monospace"
+        android:gravity="center"
+        android:padding="4dp"
+        android:letterSpacing="0.15"/>
+
+    <!-- API KEY DIALOG (hidden by default) -->
+    <LinearLayout
+        android:id="@+id/configPanel"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:background="#000810"
+        android:padding="16dp"
+        android:visibility="gone"
+        android:layout_margin="8dp">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="// CONFIGURATION API"
+            android:textColor="#00D4FF"
+            android:textSize="10sp"
+            android:fontFamily="monospace"
+            android:letterSpacing="0.2"/>
+
+        <EditText
+            android:id="@+id/apiKeyInput"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="@string/api_key_hint"
+            android:textColor="#00D4FF"
+            android:textColorHint="#0099CC"
+            android:textSize="12sp"
+            android:fontFamily="monospace"
+            android:background="#0A1628"
+            android:padding="8dp"
+            android:minHeight="40dp"
+            android:layout_marginTop="8dp"
+            android:inputType="textPassword"/>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginTop="8dp">
+
+            <Button
+                android:id="@+id/btnSaveKey"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/api_key_save"
+                android:textSize="10sp"
+                android:backgroundTint="#00D4FF"
+                android:textColor="#000810"
+                android:layout_marginEnd="4dp"/>
+
+            <Button
+                android:id="@+id/btnCloseConfig"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/api_key_close"
+                android:textSize="10sp"
+                android:backgroundTint="#0A1628"
+                android:textColor="#00D4FF"
+                android:layout_marginStart="4dp"/>
+        </LinearLayout>
+    </LinearLayout>
+
+</LinearLayout>

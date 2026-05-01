@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="jarvis_primary">#00D4FF</color>
+    <color name="jarvis_secondary">#0099CC</color>
+    <color name="jarvis_bg">#000810</color>
+    <color name="jarvis_card">#0A1628</color>
+    <color name="jarvis_border">#1A2A40</color>
+    <color name="jarvis_green">#00FF88</color>
+    <color name="jarvis_orange">#FF6B2B</color>
+    <color name="jarvis_red">#FF4444</color>
+    <color name="jarvis_text">#00D4FF</color>
+    <color name="jarvis_text_dim">#0099CC</color>
+    <color name="jarvis_mic_active">#FF6B2B</color>
+    <color name="jarvis_mic_inactive">#00D4FF</color>
+    <color name="white">#FFFFFF</color>
+    <color name="black">#000000</color>
+</resources>

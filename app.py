@@ -7,6 +7,7 @@ from flask_cors import CORS
 from system_monitor import SystemMonitor
 from mistral_ai import MistralAI
 from tts import TextToSpeech
+from system_actions import execute_action, get_available_actions
 import os
 import platform
 import subprocess
@@ -25,6 +26,87 @@ tts = TextToSpeech()
 # Variables globales
 request_count = 0
 start_time = datetime.now()
+
+# ============================================================
+# CALCULATRICE SECURISEE
+# ============================================================
+
+def safe_calculate(expression):
+    """Calcule une expression arithmetique de maniere securisee sans eval()"""
+    try:
+        # Remplacer les mots francais par des symboles
+        expr = expression.lower()
+        expr = expr.replace('fois', '*').replace('x', '*').replace('×', '*')
+        expr = expr.replace('divisé par', '/').replace('divise par', '/').replace('sur', '/')
+        expr = expr.replace('plus', '+').replace('moins', '-')
+
+        # Ne garder que les caracteres autorises
+        cleaned = re.sub(r'[^\d+\-*/().%\s]', '', expr)
+        if not cleaned.strip():
+            return None
+
+        # Tokenizer
+        tokens = re.findall(r'\d+\.?\d*|[+\-*/%()]', cleaned)
+        if not tokens:
+            return None
+
+        # Parser recursif
+        pos = [0]
+
+        def parse_expr():
+            result = parse_term()
+            while pos[0] < len(tokens) and tokens[pos[0]] in ('+', '-'):
+                op = tokens[pos[0]]
+                pos[0] += 1
+                right = parse_term()
+                result = result + right if op == '+' else result - right
+            return result
+
+        def parse_term():
+            result = parse_factor()
+            while pos[0] < len(tokens) and tokens[pos[0]] in ('*', '/', '%'):
+                op = tokens[pos[0]]
+                pos[0] += 1
+                right = parse_factor()
+                if op == '*':
+                    result *= right
+                elif op == '/':
+                    if right == 0:
+                        return None
+                    result /= right
+                else:
+                    result %= right
+            return result
+
+        def parse_factor():
+            if pos[0] >= len(tokens):
+                return 0
+            token = tokens[pos[0]]
+            if token == '(':
+                pos[0] += 1
+                result = parse_expr()
+                if pos[0] < len(tokens) and tokens[pos[0]] == ')':
+                    pos[0] += 1
+                return result
+            elif token in ('+', '-'):
+                pos[0] += 1
+                val = parse_factor()
+                return val if token == '+' else -val
+            else:
+                pos[0] += 1
+                try:
+                    return float(token)
+                except ValueError:
+                    return 0
+
+        result = parse_expr()
+        # Formater: entier si possible
+        if result == int(result):
+            return int(result)
+        return round(result, 10)
+    except Exception:
+        return None
+
 
 # ============================================================
 # COMMANDES SYSTÈME
@@ -61,20 +143,13 @@ def execute_command(command):
     if any(word in command for word in ['éteins', 'eteins', 'shutdown', 'ferme']):
         return "Je ne peux pas éteindre le système pour des raisons de sécurité. Faites-le manuellement."
 
-    # Calculatrice simple
+    # Calculatrice securisee
     calc_match = re.search(r'calcul[e]*\s*(.+)', command)
     if calc_match:
-        try:
-            expression = calc_match.group(1)
-            # Remplacer les symboles
-            expression = expression.replace('fois', '*').replace('x', '*').replace('×', '*')
-            expression = expression.replace('divisé par', '/').replace('sur', '/')
-            expression = expression.replace('plus', '+').replace('moins', '-')
-            expression = re.sub(r'[^\d+\-*/().%\s]', '', expression)
-            result = eval(expression)
+        result = safe_calculate(calc_match.group(1))
+        if result is not None:
             return f"Le résultat est {result}."
-        except Exception:
-            return "Je n'ai pas pu calculer cette expression."
+        return "Je n'ai pas pu calculer cette expression."
 
     # Information sur le système
     if any(word in command for word in ['info systeme', 'machine', 'ordinateur']):
@@ -161,7 +236,7 @@ def get_system_info():
 
 @app.route('/api/chat', methods=['POST'])
 def chat():
-    """Endpoint pour le dialogue avec l'IA"""
+    """Endpoint pour le dialogue avec l'IA et l'exécution d'actions système"""
     global request_count
     request_count += 1
 
@@ -173,7 +248,7 @@ def chat():
     use_history = data.get('history', True)
     use_tts = data.get('speak', False)
 
-    # Vérifier si c'est une commande système
+    # 1. Essayer d'abord les commandes locales rapides (heure, date, calcul)
     command_result = execute_command(user_message)
     if command_result:
         response = command_result
@@ -182,11 +257,22 @@ def chat():
         return jsonify({
             'response': response,
             'request_count': request_count,
-            'type': 'command'
+            'type': 'command',
+            'action_executed': None,
+            'action_result': None
         })
 
-    # Sinon, utiliser l'IA Mistral
-    response = ai.chat(user_message, use_history)
+    # 2. Utiliser Mistral AI avec tool calling
+    def execute_fn(action_name, **kwargs):
+        """Wrapper pour exécuter les actions système"""
+        # Pour system_info, passer le monitor
+        if action_name == "get_system_info":
+            return execute_action(action_name, metric=kwargs.get('metric', 'all'), monitor=monitor)
+        return execute_action(action_name, **kwargs)
+
+    result = ai.chat_with_tools(user_message, use_history, execute_fn=execute_fn)
+
+    response = result['response']
 
     # Synthèse vocale si demandée
     if use_tts:
@@ -195,7 +281,9 @@ def chat():
     return jsonify({
         'response': response,
         'request_count': request_count,
-        'type': 'ai'
+        'type': result.get('type', 'ai'),
+        'action_executed': result.get('action_executed'),
+        'action_result': result.get('action_result')
     })
 
 @app.route('/api/chat/history', methods=['GET'])
@@ -217,7 +305,7 @@ def clear_chat_history():
 
 @app.route('/api/voice/command', methods=['POST'])
 def voice_command():
-    """Reçoit une commande vocale transcrite et l'exécute"""
+    """Reçoit une commande vocale transcrite et l'exécute avec IA"""
     global request_count
     request_count += 1
 
@@ -237,12 +325,93 @@ def voice_command():
         'request_count': request_count
     })
 
+@app.route('/api/actions')
+def list_actions():
+    """Liste toutes les actions système disponibles"""
+    return jsonify({
+        'actions': get_available_actions(),
+        'count': len(get_available_actions())
+    })
+
+@app.route('/api/android/apps', methods=['GET'])
+def list_android_apps():
+    """Retourne la liste des apps Android connues avec leurs package names"""
+    apps = {
+        'chrome': 'com.android.chrome',
+        'google chrome': 'com.android.chrome',
+        'spotify': 'com.spotify.music',
+        'spotify music': 'com.spotify.music',
+        'whatsapp': 'com.whatsapp',
+        'youtube': 'com.google.android.youtube',
+        'maps': 'com.google.android.apps.maps',
+        'google maps': 'com.google.android.apps.maps',
+        'settings': 'android.settings.SETTINGS',
+        'paramètres': 'android.settings.SETTINGS',
+        'calculator': 'com.android.calculator2',
+        'calculatrice': 'com.android.calculator2',
+        'phone': 'com.android.dialer',
+        'téléphone': 'com.android.dialer',
+        'messages': 'com.google.android.apps.messaging',
+        'gallery': 'com.google.android.apps.photos',
+        'photos': 'com.google.android.apps.photos',
+        'camera': 'com.android.camera2',
+        'appareil photo': 'com.android.camera2',
+        'files': 'com.android.documentsui',
+        'fichiers': 'com.android.documentsui',
+        'discord': 'com.discord',
+        'instagram': 'com.instagram.android',
+        'tiktok': 'com.zhiliaoapp.musically',
+        'twitter': 'com.twitter.android',
+        'facebook': 'com.facebook.katana',
+        'netflix': 'com.netflix.mediaclient',
+        'telegram': 'org.telegram.messenger',
+        'signal': 'org.thoughtcrime.securesms',
+        'gmail': 'com.google.android.gm',
+        'drive': 'com.google.android.apps.docs',
+        'play store': 'com.android.vending',
+        'clock': 'com.google.android.deskclock',
+        'horloge': 'com.google.android.deskclock',
+        'contacts': 'com.android.contacts',
+    }
+    return jsonify({
+        'apps': apps,
+        'count': len(apps)
+    })
+
+@app.route('/api/android/info', methods=['GET'])
+def android_info():
+    """Retourne les infos de configuration pour l'app Android"""
+    return jsonify({
+        'version': '7.4.1',
+        'engine': 'Mistral AI',
+        'endpoints': {
+            'chat': '/api/chat',
+            'voice': '/api/voice/command',
+            'history': '/api/chat/history',
+            'clear': '/api/chat/clear',
+            'apps': '/api/android/apps',
+            'health': '/api/health',
+        },
+        'voice_commands': [
+            'Ouvre Chrome',
+            'Lance Spotify',
+            'Monte le volume',
+            'Coupe le son',
+            'Met en pause',
+            'Chanson suivante',
+            'Liste mes fichiers',
+            'Ouvre google.com',
+            'Cherche X sur YouTube',
+            'Verrouille le téléphone',
+        ]
+    })
+
 def process_voice_command(text):
     """Traite une commande vocale et retourne une réponse"""
-    text = text.lower().strip()
+    text_lower = text.lower().strip()
 
     # Salutations
-    if any(word in text for word in ['bonjour', 'salut', 'hello', 'hey', 'jarvis']):
+    if any(word in text_lower for word in ['bonjour', 'salut', 'hello', 'hey', 'jarvis']):
         hour = datetime.now().hour
         if hour < 12:
             return "Bonjour, monsieur. Comment puis-je vous aider ce matin ?"
@@ -252,69 +421,69 @@ def process_voice_command(text):
             return "Bonsoir, monsieur. Comment puis-je vous assister ce soir ?"
 
     # Comment vas-tu
-    if any(word in text for word in ['comment vas', 'ça va', 'ca va', 'comment tu']):
+    if any(word in text_lower for word in ['comment vas', 'ça va', 'ca va', 'comment tu']):
         return "Je fonctionne parfaitement, tous mes systèmes sont nominaux. Merci de demander."
 
     # Qui es-tu
-    if any(word in text for word in ['qui es-tu', 'qui est tu', 'ton nom', 'tu es qui']):
+    if any(word in text_lower for word in ['qui es-tu', 'qui est tu', 'ton nom', 'tu es qui']):
         return "Je suis J.A.R.V.I.S, Just A Rather Very Intelligent System. Votre assistant personnel."
 
     # Merci
-    if any(word in text for word in ['merci', 'thanks', 'super', 'parfait']):
+    if any(word in text_lower for word in ['merci', 'thanks', 'super', 'parfait']):
         return "Avec plaisir, monsieur. Je reste à votre disposition."
 
     # Au revoir
-    if any(word in text for word in ['au revoir', 'bye', 'adieu', 'à bientôt']):
+    if any(word in text_lower for word in ['au revoir', 'bye', 'adieu', 'à bientôt']):
         return "À votre service, monsieur. Bonne journée."
 
     # Heure
-    if any(word in text for word in ['heure', 'quelle heure']):
+    if any(word in text_lower for word in ['heure', 'quelle heure']):
         now = datetime.now()
         return f"Il est {now.strftime('%H heures et %M minutes')}."
 
     # Date
-    if any(word in text for word in ['date', 'quel jour', 'quelle date']):
+    if any(word in text_lower for word in ['date', 'quel jour', 'quelle date']):
         now = datetime.now()
         mois = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin',
                 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre']
         return f"Nous sommes le {now.day} {mois[now.month-1]} {now.year}."
 
     # Statut système
-    if any(word in text for word in ['statut', 'status', 'performance']):
+    if any(word in text_lower for word in ['statut', 'status', 'performance']):
         cpu = monitor.get_cpu_usage()
         mem = monitor.get_memory_usage()
         return f"Système nominal. CPU à {cpu}%, mémoire à {mem['percent']}%."
 
-    # Calcul
-    calc_match = re.search(r'calcul[e]*\s*(.+)', text)
+    # Calcul securise
+    calc_match = re.search(r'calcul[e]*\s*(.+)', text_lower)
     if calc_match:
-        try:
-            expression = calc_match.group(1)
-            expression = expression.replace('fois', '*').replace('x', '*')
-            expression = expression.replace('divisé par', '/').replace('sur', '/')
-            expression = expression.replace('plus', '+').replace('moins', '-')
-            expression = re.sub(r'[^\d+\-*/().%\s]', '', expression)
-            result = eval(expression)
+        result = safe_calculate(calc_match.group(1))
+        if result is not None:
             return f"Le résultat est {result}."
-        except Exception:
-            return "Je n'ai pas pu effectuer ce calcul."
+        return "Je n'ai pas pu effectuer ce calcul."
 
     # Silence / tais-toi
-    if any(word in text for word in ['tais-toi', 'tais toi', 'silence', 'ferme-la']):
+    if any(word in text_lower for word in ['tais-toi', 'tais toi', 'silence', 'ferme-la']):
         return "Comme vous voudrez, monsieur."
 
     # Parle / voix
-    if any(word in text for word in ['parle', 'active la voix', 'parle-moi', 'parle moi']):
+    if any(word in text_lower for word in ['parle', 'active la voix', 'parle-moi', 'parle moi']):
         tts.voice_enabled = True
         return "Voix activée. Je peux maintenant parler."
 
     # Arrêter la voix
-    if any(word in text for word in ['coupe la voix', 'silence voix', 'desactive voix']):
+    if any(word in text_lower for word in ['coupe la voix', 'silence voix', 'desactive voix']):
         tts.voice_enabled = False
         return "Voix désactivée."
 
-    # Si aucune commande spécifique ne correspond, envoyer à l'IA
-    return ai.chat(text, history=True)
+    # Si aucune commande spécifique ne correspond, utiliser l'IA avec tool calling
+    def execute_fn(action_name, **kwargs):
+        if action_name == "get_system_info":
+            return execute_action(action_name, metric=kwargs.get('metric', 'all'), monitor=monitor)
+        return execute_action(action_name, **kwargs)
+
+    result = ai.chat_with_tools(text, history=True, execute_fn=execute_fn)
+    return result['response']
 
 # ============================================================
 # UTILITAIRES
@@ -413,17 +582,20 @@ def health_check():
 # ============================================================
 
 if __name__ == '__main__':
+    port = int(os.environ.get('PORT', 5000))
+    debug = os.environ.get('FLASK_DEBUG', 'false').lower() == 'true'
+
     print("=" * 60)
     print("J.A.R.V.I.S v7.4.1 - Backend Server")
     print("Just A Rather Very Intelligent System")
     print("=" * 60)
-    print("Serveur démarre sur: http://localhost:5000")
+    print(f"Serveur demarre sur: http://0.0.0.0:{port}")
     print("Appuyez sur Ctrl+C pour arreter")
     print("=" * 60)
 
     app.run(
         host='0.0.0.0',
-        port=5000,
-        debug=True,
+        port=port,
+        debug=debug,
         threaded=True
     )

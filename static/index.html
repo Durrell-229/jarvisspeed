@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>J.A.R.V.I.S — Interface HUD</title>
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/artifacts.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 :root {
@@ -455,6 +457,10 @@ body::after {
       <div class="chat-label">// INTERFACE DIALOGUE</div>
       <div class="chat-lines" id="chatLines"></div>
       <div class="chat-input-wrap">
+        <div class="upload-zone" id="uploadZone">
+          <input type="file" id="fileInput" style="display:none" multiple>
+          <div class="upload-hint">📎 Glissez un fichier ici ou cliquez pour uploader</div>
+        </div>
         <input type="text" class="chat-input" id="chatInput" placeholder="Entrez votre message..." onkeypress="handleKeyPress(event)">
         <button class="chat-send" onclick="sendMessage()">ENVOYER</button>
       </div>
@@ -697,7 +703,14 @@ function addChatLine(role, text, meta) {
     chatLines.appendChild(actionBadge);
   }
 
-  div.textContent = prefix + content;
+  // Render code blocks for jarvis messages
+  if (role === 'jarvis' && typeof renderCodeBlocks === 'function') {
+    content = renderCodeBlocks(prefix + content);
+    div.innerHTML = content;
+  } else {
+    div.textContent = prefix + content;
+  }
+
   chatLines.appendChild(div);
   chatLines.scrollTop = chatLines.scrollHeight;
   if(role === 'jarvis') {
@@ -1098,6 +1111,13 @@ setTimeout(() => {
 setInterval(fetchSystemData, 2200);
 setInterval(fetchPowerData, 1500);
 setInterval(fetchHealth, 5000);
+
+// Init file upload
+if (typeof initFileUpload === 'function') {
+  initFileUpload();
+}
 </script>
+<script src="/js/code_editor.js"></script>
+<script src="/js/file_upload.js"></script>
 </body>
 </html>

@@ -9,8 +9,8 @@ import android.os.Handler
 import android.os.Looper
 import android.view.View
 import android.view.WindowManager
+import android.view.animation.AnimationUtils
 import android.widget.Toast
-import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
@@ -26,6 +26,7 @@ class MainActivity : AppCompatActivity(), VoiceService.Listener {
     private lateinit var jarvisAI: JarvisAI
     private lateinit var ttsEngine: TTSEngine
     private lateinit var voiceService: VoiceService
+    private lateinit var fileUploader: FileUploader
     private val handler = Handler(Looper.getMainLooper())
 
     private var isListening = false
@@ -33,12 +34,11 @@ class MainActivity : AppCompatActivity(), VoiceService.Listener {
     private var serverOnline = false
 
     private val statusMessages = listOf(
-        "● SYSTEME EN LIGNE",
-        "● ANALYSE EN COURS",
-        "● TOUS SYSTEMES OK",
-        "● API ACTIVE",
-        "● MEMOIRE STABLE",
-        "● RECONNAISSANCE VOCALE PRETE"
+        "JARVIS AI Assistant",
+        "Reconnaissance vocale active",
+        "Commandes locales disponibles",
+        "Connecté à Mistral AI",
+        "Tous systèmes opérationnels"
     )
     private var statusIdx = 0
 
@@ -54,7 +54,8 @@ class MainActivity : AppCompatActivity(), VoiceService.Listener {
         window.decorView.systemUiVisibility = (
             View.SYSTEM_UI_FLAG_FULLSCREEN or
             View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or
-            View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+            View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY or
+            View.SYSTEM_UI_FLAG_LAYOUT_STABLE
         )
 
         binding = ActivityMainBinding.inflate(layoutInflater)
@@ -63,7 +64,6 @@ class MainActivity : AppCompatActivity(), VoiceService.Listener {
         initViews()
         initPermissions()
         initClock()
-        initChat()
     }
 
     private fun initViews() {
@@ -84,8 +84,8 @@ class MainActivity : AppCompatActivity(), VoiceService.Listener {
         // Mic button
         binding.btnMic.setOnClickListener { toggleMic() }
 
-        // Voice toggle
-        binding.btnVoice.setOnClickListener { toggleTTS() }
+        // Upload button
+        binding.btnUpload.setOnClickListener { triggerFileUpload() }
 
         // Config button
         binding.btnConfig.setOnClickListener { showConfigPanel() }
@@ -101,18 +101,11 @@ class MainActivity : AppCompatActivity(), VoiceService.Listener {
         // Bottom status cycling
         handler.postDelayed(object : Runnable {
             override fun run() {
-                val messages = listOf(
-                    "TOUS SYSTEMES NOMINAUX",
-                    "ANALYSE ENVIRONNEMENT",
-                    "MISTRAL AI ENGINE",
-                    "RADAR: ZONE SECURISEE",
-                    "AUCUNE MENACE DETECTEE",
-                    "COMMANDES VOCALES ACTIVES"
-                )
-                binding.bottomStatus.text = messages[(0 until messages.size).random()]
-                handler.postDelayed(this, 3200)
+                binding.bottomStatus.text = statusMessages[statusIdx % statusMessages.size]
+                statusIdx++
+                handler.postDelayed(this, 5000)
             }
-        }, 3200)
+        }, 5000)
     }
 
     private fun initPermissions() {
@@ -121,10 +114,6 @@ class MainActivity : AppCompatActivity(), VoiceService.Listener {
             Manifest.permission.INTERNET,
             Manifest.permission.ACCESS_NETWORK_STATE
         )
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            // No extra permissions needed for TIRAMISU for our use case
-        }
 
         val needed = permissions.filter {
             ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED
@@ -151,8 +140,8 @@ class MainActivity : AppCompatActivity(), VoiceService.Listener {
             if (grantResults.all { it == PackageManager.PERMISSION_GRANTED }) {
                 initServices()
             } else {
-                Toast.makeText(this, "Permission microphone requise pour la voix", Toast.LENGTH_LONG).show()
-                initServices() // Continue without voice
+                Toast.makeText(this, getString(R.string.error_permission), Toast.LENGTH_LONG).show()
+                initServices()
             }
         }
     }
@@ -161,10 +150,10 @@ class MainActivity : AppCompatActivity(), VoiceService.Listener {
         // TTS
         ttsEngine = TTSEngine(this) { isSpeaking ->
             if (isSpeaking) {
-                binding.coreText.text = "PARLE"
-                binding.btnMic.setBackgroundResource(android.R.drawable.ic_btn_speak_now)
+                binding.coreText.text = getString(R.string.status_processing)
+                binding.coreText.visibility = View.VISIBLE
             } else {
-                binding.coreText.text = "EN LIGNE"
+                binding.coreText.visibility = View.GONE
             }
         }
 
@@ -180,6 +169,7 @@ class MainActivity : AppCompatActivity(), VoiceService.Listener {
                     response.actionExecuted
                 )
                 scrollToBottom()
+                binding.coreText.visibility = View.GONE
             }
         }
 
@@ -194,17 +184,15 @@ class MainActivity : AppCompatActivity(), VoiceService.Listener {
             runOnUiThread {
                 chatAdapter.addMessage("jarvis", "Erreur: $error")
                 scrollToBottom()
+                binding.coreText.visibility = View.GONE
             }
         }
 
         jarvisAI.onSystemStatus = { status ->
             runOnUiThread {
                 serverOnline = true
-                binding.statusBadge.text = "● SYSTEME EN LIGNE"
-                binding.statusBadge.setTextColor(0xFF00FF88.toInt())
-                binding.cpuText.text = "${status.system.cpu.toInt()}%"
-                binding.memText.text = "${status.system.memory.toInt()}%"
-                binding.uptimeText.text = status.uptime
+                binding.statusBadge.text = "●"
+                binding.statusBadge.setTextColor(ContextCompat.getColor(this, R.color.success) ?: 0xFF00FF88.toInt())
             }
         }
 
@@ -212,15 +200,48 @@ class MainActivity : AppCompatActivity(), VoiceService.Listener {
         voiceService = VoiceService()
         voiceService.listener = this
 
+        // File Uploader
+        fileUploader = FileUploader(this)
+
+        // Setup file upload callback
+        jarvisAI.onFileUploadRequest = {
+            runOnUiThread {
+                fileUploader.pickFile(this, object : FileUploader.Callback {
+                    override fun onSuccess(fileName: String, fileSize: Long, content: String) {
+                        runOnUiThread {
+                            chatAdapter.addMessage("user", "📎 Fichier: $fileName (${formatSize(fileSize)})")
+                            chatAdapter.addMessage("jarvis", "Fichier \"$fileName\" reçu. Analyse en cours...")
+                            scrollToBottom()
+
+                            // Send to AI for analysis
+                            val analysisPrompt = if (content.startsWith("[")) {
+                                // Binary file - needs vision AI
+                                "J'ai uploadé un fichier \"$fileName\". Analyse ce fichier et donne-moi des informations."
+                            } else {
+                                "Voici le contenu d'un fichier \"$fileName\":\n\n$content\n\nAnalyse ce contenu et donne-moi un résumé."
+                            }
+                            jarvisAI.sendChat(analysisPrompt, speak = ttsEnabled)
+                        }
+                    }
+
+                    override fun onError(error: String) {
+                        runOnUiThread {
+                            chatAdapter.addSystemMessage(error)
+                            scrollToBottom()
+                        }
+                    }
+                })
+            }
+        }
+
         // Load history
         loadChatHistory()
 
         // Welcome messages
         Handler(Looper.getMainLooper()).postDelayed({
-            chatAdapter.addMessage("jarvis", "Systeme initialise. Bonjour.")
-            chatAdapter.addMessage("jarvis", "Connecte a Mistral AI Engine.")
-            chatAdapter.addMessage("jarvis", "Appuyez sur le micro pour parler ou tapez un message.")
-            chatAdapter.addMessage("jarvis", "Tapez /help pour voir les commandes.")
+            chatAdapter.addMessage("jarvis", getString(R.string.welcome_1))
+            chatAdapter.addMessage("jarvis", getString(R.string.welcome_2))
+            chatAdapter.addMessage("jarvis", getString(R.string.welcome_3))
             scrollToBottom()
         }, 500)
 
@@ -229,25 +250,19 @@ class MainActivity : AppCompatActivity(), VoiceService.Listener {
             override fun run() {
                 jarvisAI.fetchStatus()
                 jarvisAI.fetchHealth()
-                statusIdx = (statusIdx + 1) % statusMessages.size
-                binding.statusBadge.text = statusMessages[statusIdx]
                 handler.postDelayed(this, 5000)
             }
         }, 2000)
     }
 
     private fun initClock() {
-        val format = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
+        val format = SimpleDateFormat("HH:mm", Locale.getDefault())
         handler.post(object : Runnable {
             override fun run() {
-                binding.clock.text = format.format(Date())
-                handler.postDelayed(this, 1000)
+                binding.titleText.text = "JARVIS · ${format.format(Date())}"
+                handler.postDelayed(this, 60000)
             }
         })
-    }
-
-    private fun initChat() {
-        // Nothing extra needed, RecyclerView is set up in initViews
     }
 
     private fun sendChatMessage() {
@@ -274,13 +289,18 @@ class MainActivity : AppCompatActivity(), VoiceService.Listener {
                 return
             }
             "/help", "/aide" -> {
-                chatAdapter.addMessage("jarvis", "Commandes: /clear, /tts, /history, /help. Dites 'ouvre Chrome', 'monte le volume', 'pause musique'...")
+                chatAdapter.addSystemMessage(
+                    "Commandes: /clear, /tts, /history, /help\n" +
+                    "Dites: 'ouvre Spotify', 'monte le volume', 'pause musique', " +
+                    "'batterie', 'torche', 'wifi', 'bluetooth', 'stockage', 'calcule 25 fois 4'..."
+                )
                 scrollToBottom()
                 return
             }
         }
 
-        binding.coreText.text = "TRAITEMENT"
+        binding.coreText.text = getString(R.string.status_processing)
+        binding.coreText.visibility = View.VISIBLE
         jarvisAI.sendChat(text, speak = ttsEnabled)
     }
 
@@ -301,9 +321,41 @@ class MainActivity : AppCompatActivity(), VoiceService.Listener {
 
     private fun toggleTTS() {
         ttsEnabled = ttsEngine.toggle()
-        binding.btnVoice.text = if (ttsEnabled) "🔊" else "🔇"
-        chatAdapter.addMessage("jarvis", if (ttsEnabled) "Voix activee." else "Voix desactivee.")
+        chatAdapter.addSystemMessage(if (ttsEnabled) "Voix activée." else "Voix désactivée.")
         scrollToBottom()
+    }
+
+    private fun triggerFileUpload() {
+        if (!::fileUploader.isInitialized) {
+            Toast.makeText(this, "Upload non initialisé", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        fileUploader.pickFile(this, object : FileUploader.Callback {
+            override fun onSuccess(fileName: String, fileSize: Long, content: String) {
+                runOnUiThread {
+                    chatAdapter.addMessage("user", "📎 Fichier: $fileName (${formatSize(fileSize)})")
+                    chatAdapter.addMessage("jarvis", "Fichier \"$fileName\" reçu. Analyse en cours...")
+                    scrollToBottom()
+
+                    // Send to AI for analysis
+                    val analysisPrompt = if (content.startsWith("[")) {
+                        // Binary file - needs vision AI
+                        "J'ai uploadé un fichier \"$fileName\". Analyse ce fichier et donne-moi des informations."
+                    } else {
+                        "Voici le contenu d'un fichier \"$fileName\":\n\n$content\n\nAnalyse ce contenu et donne-moi un résumé."
+                    }
+                    jarvisAI.sendChat(analysisPrompt, speak = ttsEnabled)
+                }
+            }
+
+            override fun onError(error: String) {
+                runOnUiThread {
+                    chatAdapter.addSystemMessage(error)
+                    scrollToBottom()
+                }
+            }
+        })
     }
 
     private fun showConfigPanel() {
@@ -318,8 +370,8 @@ class MainActivity : AppCompatActivity(), VoiceService.Listener {
         jarvisAI.setApiKey(key) { success ->
             runOnUiThread {
                 if (success) {
-                    Toast.makeText(this, "Cle API configuree", Toast.LENGTH_SHORT).show()
-                    chatAdapter.addMessage("jarvis", "Cle API Mistral configuree avec succes.")
+                    Toast.makeText(this, "Clé API configurée", Toast.LENGTH_SHORT).show()
+                    chatAdapter.addSystemMessage("Clé API Mistral configurée avec succès.")
                     binding.configPanel.visibility = View.GONE
                 } else {
                     Toast.makeText(this, "Erreur de configuration", Toast.LENGTH_SHORT).show()
@@ -333,7 +385,7 @@ class MainActivity : AppCompatActivity(), VoiceService.Listener {
 
     private fun toggleMic() {
         if (!::voiceService.isInitialized) {
-            Toast.makeText(this, "Service vocal non initialise", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Service vocal non initialisé", Toast.LENGTH_SHORT).show()
             return
         }
 
@@ -342,26 +394,38 @@ class MainActivity : AppCompatActivity(), VoiceService.Listener {
         } else {
             voiceService.startListening()
             isListening = true
-            binding.btnMic.text = "🔴"
-            binding.coreText.text = "ECOUTE"
+            binding.btnMic.setBackgroundResource(R.drawable.mic_active)
+            binding.coreText.text = getString(R.string.status_listening)
+            binding.coreText.visibility = View.VISIBLE
+
+            // Pulse animation
+            binding.btnMic.startAnimation(
+                AnimationUtils.loadAnimation(this, R.anim.pulse)
+            )
         }
     }
 
     override fun onListeningStarted() {
         isListening = true
-        binding.btnMic.text = "🔴"
-        binding.coreText.text = "ECOUTE"
+        runOnUiThread {
+            binding.btnMic.setBackgroundResource(R.drawable.mic_active)
+            binding.coreText.text = getString(R.string.status_listening)
+            binding.coreText.visibility = View.VISIBLE
+        }
     }
 
     override fun onListeningStopped() {
         isListening = false
-        binding.btnMic.text = "🎙️"
-        binding.coreText.text = "EN LIGNE"
+        runOnUiThread {
+            binding.btnMic.setBackgroundResource(R.drawable.mic_inactive)
+            binding.btnMic.clearAnimation()
+            binding.coreText.visibility = View.GONE
+        }
     }
 
     override fun onResult(text: String, confidence: Float) {
         runOnUiThread {
-            chatAdapter.addMessage("user", "[VOIX] $text")
+            chatAdapter.addMessage("user", text)
             scrollToBottom()
             jarvisAI.sendVoiceCommand(text)
         }
@@ -370,12 +434,8 @@ class MainActivity : AppCompatActivity(), VoiceService.Listener {
     override fun onError(error: String) {
         runOnUiThread {
             if (error.contains("Permission")) {
-                Toast.makeText(this, "Autorisez le microphone dans les parametres", Toast.LENGTH_LONG).show()
+                Toast.makeText(this, getString(R.string.error_permission), Toast.LENGTH_LONG).show()
             }
-            binding.coreText.text = "ERREUR"
-            Handler(Looper.getMainLooper()).postDelayed({
-                binding.coreText.text = "EN LIGNE"
-            }, 2000)
         }
     }
 
@@ -387,6 +447,22 @@ class MainActivity : AppCompatActivity(), VoiceService.Listener {
         }, 100)
     }
 
+    private fun formatSize(bytes: Long): String {
+        return when {
+            bytes < 1024 -> "$bytes B"
+            bytes < 1024 * 1024 -> String.format("%.1f KB", bytes / 1024.0)
+            else -> String.format("%.1f MB", bytes / (1024.0 * 1024))
+        }
+    }
+
+    @Deprecated("Deprecated in Java")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (!fileUploader.handleActivityResult(requestCode, resultCode, data)) {
+            super.onActivityResult(requestCode, resultCode, data)
+        }
+    }
+
     override fun onDestroy() {
         handler.removeCallbacksAndMessages(null)
         if (::ttsEngine.isInitialized) ttsEngine.shutdown()
@@ -395,6 +471,10 @@ class MainActivity : AppCompatActivity(), VoiceService.Listener {
     }
 
     override fun onBackPressed() {
+        if (binding.configPanel.visibility == View.VISIBLE) {
+            binding.configPanel.visibility = View.GONE
+            return
+        }
         // Double back to exit
         var backPressedTime: Long = 0
         val current = System.currentTimeMillis()

@@ -8,11 +8,15 @@ from system_monitor import SystemMonitor
 from mistral_ai import MistralAI
 from tts import TextToSpeech
 from system_actions import execute_action, get_available_actions
+from file_handler import save_file, extract_text_from_file, analyze_csv_data, get_file_info, list_files, delete_file
+from code_runner import execute_python_code
+from chart_generator import generate_chart
 import os
 import platform
 import subprocess
 from datetime import datetime
 import re
+import base64
 from dotenv import set_key
 
 app = Flask(__name__, static_folder='static', static_url_path='')
@@ -576,6 +580,234 @@ def health_check():
         'voice_enabled': tts.voice_enabled,
         'uptime': monitor.get_uptime_formatted()
     })
+
+# ============================================================
+# UPLOAD & ANALYSE DE FICHIERS
+# ============================================================
+
+@app.route('/api/upload', methods=['POST'])
+def upload_file():
+    """Upload d'un fichier"""
+    global request_count
+    request_count += 1
+
+    if 'file' not in request.files:
+        return jsonify({"error": "Aucun fichier dans la requete"}), 400
+
+    file = request.files['file']
+    file_info, error = save_file(file)
+
+    if error:
+        return jsonify({"error": error}), 400
+
+    # Extraire le contenu automatiquement
+    content, extract_error = extract_text_from_file(file_info)
+
+    response = {
+        "file": {
+            "id": file_info['id'],
+            "name": file_info['original_name'],
+            "type": file_info['extension'],
+            "size": file_info['size']
+        },
+        "content": content,
+        "extract_error": extract_error
+    }
+
+    return jsonify(response), 200
+
+
+@app.route('/api/analyze', methods=['POST'])
+def analyze_file():
+    """Analyse un fichier uploadé"""
+    global request_count
+    request_count += 1
+
+    data = request.get_json()
+    file_id = data.get('file_id')
+
+    if not file_id:
+        return jsonify({"error": "file_id requis"}), 400
+
+    file_info = get_file_info(file_id)
+    if not file_info:
+        return jsonify({"error": "Fichier non trouve"}), 404
+
+    ext = file_info['extension']
+
+    # Analyse selon le type
+    if ext == 'csv':
+        stats, error = analyze_csv_data(file_info)
+        if error:
+            return jsonify({"error": error}), 500
+        return jsonify({"analysis": stats}), 200
+
+    elif ext in ('txt', 'py', 'js', 'html', 'css', 'md', 'json'):
+        content, error = extract_text_from_file(file_info)
+        if error:
+            return jsonify({"error": error}), 500
+        summary = {
+            "type": "text_file",
+            "length": len(content) if isinstance(content, str) else 0,
+            "lines": content.count('\n') + 1 if isinstance(content, str) else 0,
+            "preview": content[:500] if isinstance(content, str) else ""
+        }
+        return jsonify({"analysis": summary}), 200
+
+    elif ext in ('png', 'jpg', 'jpeg', 'gif', 'webp'):
+        # Retourne l'image pour analyse par Mistral Vision
+        content, error = extract_text_from_file(file_info)
+        if error:
+            return jsonify({"error": error}), 500
+        return jsonify({"analysis": content}), 200
+
+    else:
+        return jsonify({"error": f"Analyse non supportée pour .{ext}"}), 400
+
+
+# ============================================================
+# EXECUTION DE CODE
+# ============================================================
+
+@app.route('/api/code/execute', methods=['POST'])
+def execute_code():
+    """Exécute du code Python de manière sécurisée"""
+    global request_count
+    request_count += 1
+
+    data = request.get_json()
+    code = data.get('code', '')
+
+    if not code:
+        return jsonify({"error": "Code requis"}), 400
+
+    result = execute_python_code(code)
+    return jsonify(result), 200
+
+
+# ============================================================
+# GENERATION DE GRAPHIQUES
+# ============================================================
+
+@app.route('/api/chart', methods=['POST'])
+def create_chart():
+    """Génère un graphique"""
+    global request_count
+    request_count += 1
+
+    data = request.get_json()
+    chart_data = data.get('data', {})
+    chart_type = data.get('type', 'bar')
+    title = data.get('title', 'Graphique')
+
+    result = generate_chart(chart_data, chart_type, title)
+    return jsonify(result), 200 if result['success'] else 400
+
+
+# ============================================================
+# GESTION DES FICHIERS
+# ============================================================
+
+@app.route('/api/files', methods=['GET'])
+def get_files():
+    """Liste tous les fichiers uploadés"""
+    files = list_files()
+    return jsonify({"files": files}), 200
+
+
+@app.route('/api/files/<file_id>', methods=['GET'])
+def get_file_detail(file_id):
+    """Détail d'un fichier"""
+    file_info = get_file_info(file_id)
+    if not file_info:
+        return jsonify({"error": "Fichier non trouve"}), 404
+
+    content, error = extract_text_from_file(file_info)
+    return jsonify({
+        "file": {k: v for k, v in file_info.items() if k != 'path'},
+        "content": content,
+        "error": error
+    }), 200
+
+
+@app.route('/api/files/<file_id>/download', methods=['GET'])
+def download_file(file_id):
+    """Télécharge un fichier"""
+    file_info = get_file_info(file_id)
+    if not file_info:
+        return jsonify({"error": "Fichier non trouve"}), 404
+
+    return send_from_directory(
+        os.path.dirname(file_info['path']),
+        os.path.basename(file_info['path']),
+        as_attachment=True
+    )
+
+
+@app.route('/api/files/<file_id>', methods=['DELETE'])
+def remove_file(file_id):
+    """Supprime un fichier"""
+    success = delete_file(file_id)
+    if success:
+        return jsonify({"message": "Fichier supprime"}), 200
+    return jsonify({"error": "Fichier non trouve"}), 404
+
+
+# ============================================================
+# MISTRAL VISION (Analyse d'images)
+# ============================================================
+
+@app.route('/api/vision', methods=['POST'])
+def vision_analyze():
+    """Analyse une image avec Mistral Vision API"""
+    global request_count
+    request_count += 1
+
+    data = request.get_json()
+    image_url = data.get('image_url', '')
+    prompt = data.get('prompt', "Décrivez cette image en détail.")
+
+    if not image_url:
+        return jsonify({"error": "image_url requis"}), 400
+
+    if not ai.api_key:
+        return jsonify({"error": "Clé API Mistral non configurée"}), 400
+
+    try:
+        # Utiliser Mistral Vision API
+        headers = {
+            'Authorization': f'Bearer {ai.api_key}',
+            'Content-Type': 'application/json'
+        }
+
+        payload = {
+            'model': 'pixtral-12b-latest',  # Modèle vision de Mistral
+            'messages': [
+                {'role': 'user', 'content': [
+                    {'type': 'text', 'text': prompt},
+                    {'type': 'image_url', 'image_url': {'url': image_url}}
+                ]}
+            ],
+            'max_tokens': 1024
+        }
+
+        response = requests.post(
+            f'{ai.base_url}/chat/completions',
+            headers=headers,
+            json=payload,
+            timeout=30
+        )
+
+        if response.status_code == 200:
+            result = response.json()
+            description = result['choices'][0]['message']['content']
+            return jsonify({"description": description}), 200
+        else:
+            return jsonify({"error": f"Erreur API: {response.status_code}"}), response.status_code
+
+    except Exception as e:
+        return jsonify({"error": f"Erreur vision: {str(e)}"}), 500
+
 
 # ============================================================
 # LANCEMENT

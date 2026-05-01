@@ -14,7 +14,7 @@ class MistralAI:
     def __init__(self):
         self.api_key = os.getenv('MISTRAL_API_KEY', '')
         self.base_url = 'https://api.mistral.ai/v1'
-        self.model = 'mistral-small-latest'
+        self.model = 'mistral-large-latest'
         self.conversation_history = []
         self._init_system_message()
 
@@ -262,18 +262,142 @@ class MistralAI:
         {
             "type": "function",
             "function": {
-                "name": "system_control",
-                "description": "Contrôle le système: lock (verrouiller), sleep (mettre en veille), shutdown (éteindre), restart (redémarrer), hibernate.",
+                "name": "generate_code",
+                "description": "Génère du code dans un langage spécifique (Python, JavaScript, HTML, CSS, etc.). Retourne le code formaté.",
                 "parameters": {
                     "type": "object",
                     "properties": {
-                        "action": {
+                        "language": {
                             "type": "string",
-                            "description": "Action système: lock, sleep, shutdown, restart, hibernate",
-                            "enum": ["lock", "sleep", "shutdown", "restart", "hibernate", "verrouiller", "veille", "éteindre", "redémarrer"]
+                            "description": "Langage de programmation: python, javascript, html, css, json, markdown, typescript, java, c, cpp, rust, go, php, sql, bash, powershell",
+                            "enum": ["python", "javascript", "html", "css", "json", "markdown", "typescript", "java", "c", "cpp", "rust", "go", "php", "sql", "bash", "powershell"]
+                        },
+                        "description": {
+                            "type": "string",
+                            "description": "Description de ce que le code doit faire"
                         }
                     },
-                    "required": ["action"]
+                    "required": ["language", "description"]
+                }
+            }
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "analyze_file",
+                "description": "Analyse le contenu d'un fichier (code, données, texte). Peut lire, expliquer et suggérer des améliorations.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "file_type": {
+                            "type": "string",
+                            "description": "Type du fichier: python, javascript, csv, json, text, html, css, markdown, image"
+                        },
+                        "content": {
+                            "type": "string",
+                            "description": "Contenu du fichier ou description"
+                        },
+                        "task": {
+                            "type": "string",
+                            "description": "Tâche à effectuer: explain, review, improve, debug, summarize, translate"
+                        }
+                    },
+                    "required": ["file_type", "content", "task"]
+                }
+            }
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "execute_python",
+                "description": "Exécute du code Python et retourne le résultat. Utile pour les calculs complexes, l'analyse de données, etc.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "code": {
+                            "type": "string",
+                            "description": "Le code Python à exécuter"
+                        }
+                    },
+                    "required": ["code"]
+                }
+            }
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "create_chart",
+                "description": "Crée un graphique à partir de données. Supporte bar, line, pie, scatter, area.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "chart_type": {
+                            "type": "string",
+                            "description": "Type de graphique: bar, line, pie, scatter, area",
+                            "enum": ["bar", "line", "pie", "scatter", "area"]
+                        },
+                        "title": {
+                            "type": "string",
+                            "description": "Titre du graphique"
+                        },
+                        "labels": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "Labels pour l'axe X ou les catégories"
+                        },
+                        "values": {
+                            "type": "array",
+                            "items": {"type": "number"},
+                            "description": "Valeurs numériques"
+                        }
+                    },
+                    "required": ["chart_type", "title", "labels", "values"]
+                }
+            }
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "read_document",
+                "description": "Lit et analyse un document (PDF, texte long). Peut résumer, extraire des informations, ou répondre à des questions.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "content": {
+                            "type": "string",
+                            "description": "Contenu du document"
+                        },
+                        "task": {
+                            "type": "string",
+                            "description": "Tâche: summarize, extract, answer, analyze"
+                        },
+                        "question": {
+                            "type": "string",
+                            "description": "Question spécifique sur le document (optionnel)"
+                        }
+                    },
+                    "required": ["content", "task"]
+                }
+            }
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "summarize_text",
+                "description": "Résume un texte long en points clés concis.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "text": {
+                            "type": "string",
+                            "description": "Le texte à résumer"
+                        },
+                        "max_length": {
+                            "type": "string",
+                            "description": "Longueur maximale du résumé: short, medium, long"
+                        }
+                    },
+                    "required": ["text"]
                 }
             }
         },

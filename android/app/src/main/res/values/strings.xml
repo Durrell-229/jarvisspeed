@@ -1,21 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">J.A.R.V.I.S</string>
-    <string name="app_subtitle">Just A Rather Very Intelligent System</string>
-    <string name="hint_message">Entrez votre message...</string>
-    <string name="btn_send">ENVOYER</string>
-    <string name="btn_voice">VOIX</string>
-    <string name="btn_config">API</string>
-    <string name="listening">EN ECOUTE...</string>
-    <string name="press_space">[ ESPACE ] OU CLIC POUR ACTIVER</string>
-    <string name="initializing">INITIALISATION DU SYSTEME...</string>
-    <string name="system_online">SYSTEME EN LIGNE</string>
-    <string name="system_offline">SERVEUR HORS LIGNE</string>
-    <string name="api_key_hint">Cle API Mistral...</string>
-    <string name="api_key_save">SAUVEGARDER</string>
-    <string name="api_key_close">FERMER</string>
-    <string name="permission_audio">Permission microphone requise</string>
-    <string name="error_no_api">Cle API non configuree</string>
-    <string name="error_network">Erreur reseau</string>
-    <string name="welcome">Systeme initialise. Bonjour.</string>
+    <string name="app_name">JARVIS</string>
+    <string name="hint_message">Message a JARVIS...</string>
+    <string name="api_key_hint">Cle API Mistral (sk-...)</string>
+    <string name="api_key_save">Enregistrer</string>
+    <string name="api_key_close">Fermer</string>
+    <string name="mic_on">Micro actif</string>
+    <string name="mic_off">Micro inactif</string>
+    <string name="send">Envoyer</string>
+    <string name="settings">Parametres</string>
+    <string name="clear_chat">Effacer le chat</string>
+    <string name="welcome_1">Bienvenue dans JARVIS</string>
+    <string name="welcome_2">Appuyez sur le micro pour parler</string>
+    <string name="welcome_3">Ou tapez votre message ci-dessous</string>
+    <string name="status_online">En ligne</string>
+    <string name="status_offline">Hors ligne</string>
+    <string name="status_listening">Ecoute...</string>
+    <string name="status_processing">Traitement...</string>
+    <string name="error_permission">Autorisation microphone requise</string>
+    <string name="error_server">Erreur serveur</string>
 </resources>

@@ -1,0 +1,322 @@
+/* JARVIS - Artifacts & Code Blocks Styles */
+
+/* Code Block Container */
+.code-block {
+    position: relative;
+    background: #1a1a2e;
+    border-radius: 8px;
+    margin: 8px 0;
+    overflow: hidden;
+    border: 1px solid #333;
+}
+
+.code-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 12px;
+    background: #16213e;
+    border-bottom: 1px solid #333;
+}
+
+.code-language {
+    font-size: 12px;
+    color: #10A37A;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.code-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.code-btn {
+    padding: 4px 10px;
+    font-size: 11px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-weight: 500;
+}
+
+.code-btn.copy {
+    background: #333;
+    color: #fff;
+}
+
+.code-btn.copy:hover {
+    background: #10A37A;
+}
+
+.code-btn.execute {
+    background: #10A37A;
+    color: #fff;
+}
+
+.code-btn.execute:hover {
+    background: #0E8C6A;
+}
+
+.code-btn.preview {
+    background: #00D4FF;
+    color: #000;
+}
+
+.code-btn.preview:hover {
+    background: #0099CC;
+}
+
+.code-content {
+    padding: 12px;
+    overflow-x: auto;
+    font-family: 'Consolas', 'Monaco', monospace;
+    font-size: 13px;
+    line-height: 1.5;
+    color: #e0e0e0;
+    white-space: pre;
+    tab-size: 4;
+}
+
+/* Code output */
+.code-output {
+    background: #0d0d0d;
+    border-top: 1px solid #333;
+    padding: 12px;
+    font-family: 'Consolas', 'Monaco', monospace;
+    font-size: 12px;
+    color: #10A37A;
+    max-height: 300px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+}
+
+.code-output.error {
+    color: #EF4444;
+}
+
+/* HTML Preview iframe */
+.code-preview {
+    width: 100%;
+    height: 400px;
+    border: none;
+    background: #fff;
+    border-radius: 0 0 8px 8px;
+}
+
+/* File Upload Zone */
+.upload-zone {
+    border: 2px dashed #333;
+    border-radius: 12px;
+    padding: 24px;
+    text-align: center;
+    transition: all 0.3s;
+    cursor: pointer;
+    background: #1a1a1a;
+}
+
+.upload-zone:hover,
+.upload-zone.dragover {
+    border-color: #10A37A;
+    background: #10A37A10;
+}
+
+.upload-zone p,
+.upload-zone .upload-hint {
+    color: #8E8EA0;
+    margin: 0;
+    font-size: 14px;
+}
+
+.upload-zone .upload-icon {
+    font-size: 32px;
+    margin-bottom: 8px;
+}
+
+/* File Info Card */
+.file-card {
+    background: #1a1a1a;
+    border: 1px solid #333;
+    border-radius: 8px;
+    padding: 12px;
+    margin: 8px 0;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.file-card .file-icon {
+    font-size: 24px;
+}
+
+.file-card .file-info {
+    flex: 1;
+}
+
+.file-card .file-name {
+    color: #ECECF1;
+    font-weight: 500;
+    font-size: 14px;
+}
+
+.file-card .file-size {
+    color: #8E8EA0;
+    font-size: 12px;
+}
+
+/* Artifact Panel */
+.artifact-panel {
+    position: fixed;
+    right: -500px;
+    top: 0;
+    width: 500px;
+    height: 100vh;
+    background: #0d0d0d;
+    border-left: 1px solid #333;
+    transition: right 0.3s ease;
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+}
+
+.artifact-panel.open {
+    right: 0;
+}
+
+.artifact-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px;
+    border-bottom: 1px solid #333;
+    background: #1a1a1a;
+}
+
+.artifact-header h3 {
+    color: #ECECF1;
+    margin: 0;
+    font-size: 16px;
+}
+
+.artifact-close {
+    background: none;
+    border: none;
+    color: #8E8EA0;
+    font-size: 24px;
+    cursor: pointer;
+    padding: 4px 8px;
+}
+
+.artifact-close:hover {
+    color: #fff;
+}
+
+.artifact-content {
+    flex: 1;
+    overflow: auto;
+    padding: 16px;
+}
+
+/* Chart Container */
+.chart-container {
+    background: #1a1a1a;
+    border-radius: 12px;
+    padding: 16px;
+    margin: 12px 0;
+    border: 1px solid #333;
+}
+
+.chart-container img {
+    max-width: 100%;
+    border-radius: 8px;
+}
+
+/* Markdown Content */
+.markdown-content {
+    color: #ECECF1;
+    line-height: 1.6;
+}
+
+.markdown-content h1,
+.markdown-content h2,
+.markdown-content h3 {
+    color: #10A37A;
+    margin-top: 16px;
+}
+
+.markdown-content p {
+    margin: 8px 0;
+}
+
+.markdown-content ul,
+.markdown-content ol {
+    padding-left: 24px;
+}
+
+.markdown-content code {
+    background: #1a1a2e;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: 'Consolas', monospace;
+    font-size: 0.9em;
+}
+
+.markdown-content pre {
+    background: #1a1a2e;
+    padding: 12px;
+    border-radius: 8px;
+    overflow-x: auto;
+}
+
+/* Upload Progress */
+.upload-progress {
+    height: 4px;
+    background: #333;
+    border-radius: 2px;
+    overflow: hidden;
+    margin-top: 8px;
+}
+
+.upload-progress-bar {
+    height: 100%;
+    background: #10A37A;
+    transition: width 0.3s;
+}
+
+/* Analysis Result */
+.analysis-result {
+    background: #1a1a1a;
+    border: 1px solid #333;
+    border-radius: 8px;
+    padding: 16px;
+    margin: 8px 0;
+}
+
+.analysis-result h4 {
+    color: #10A37A;
+    margin: 0 0 12px 0;
+    font-size: 14px;
+}
+
+.analysis-result table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
+.analysis-result th,
+.analysis-result td {
+    padding: 6px 8px;
+    text-align: left;
+    border-bottom: 1px solid #333;
+}
+
+.analysis-result th {
+    color: #10A37A;
+    font-weight: 600;
+}
+
+.analysis-result td {
+    color: #ECECF1;
+}
